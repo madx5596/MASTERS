@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDataStore, useAuthStore } from '../../store';
 import { Card, Button, Badge, Avatar, StatCard, Modal, Tabs, Table, EmptyState } from '../../components/ui';
 import { formatCurrency, formatTime, formatDate, formatDateTime, getTransactionTypeLabel, getTransactionTypeColor } from '../../utils/format';
-import type { PremiumSubscription } from '../../types';
+import type { PremiumSubscription, Service } from '../../types';
 import { ChatPage } from '../shared/ChatPage';
 import { useCurrentProvider, useCurrentWallet } from '../../hooks/useCurrentUser';
 
@@ -281,59 +281,239 @@ export function ProviderClients() {
 
 // ============ PROVIDER SERVICES ============
 export function ProviderServices() {
-  const { services } = useDataStore();
+  const { services, addService, updateService, deleteService } = useDataStore();
   const provider = useCurrentProvider();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    price: 1500,
+    duration: 60,
+    categoryId: 'cat-1',
+  });
+  const [formError, setFormError] = useState<string | null>(null);
+  
   const providerServices = services.filter(s => s.providerId === provider?.id);
+
+  const handleOpenAdd = () => {
+    setEditingService(null);
+    setFormData({ name: '', description: '', price: 1500, duration: 60, categoryId: 'cat-1' });
+    setFormError(null);
+    setShowAddModal(true);
+  };
+
+  const handleOpenEdit = (service: Service) => {
+    setEditingService(service);
+    setFormData({
+      name: service.name,
+      description: service.description || '',
+      price: service.price / 100,
+      duration: service.duration,
+      categoryId: service.categoryId,
+    });
+    setFormError(null);
+    setShowAddModal(true);
+  };
+
+  const handleSave = () => {
+    if (!provider) return;
+    
+    // Validation
+    if (!formData.name.trim()) {
+      setFormError('Введите название услуги');
+      return;
+    }
+    if (formData.price <= 0) {
+      setFormError('Цена должна быть больше 0');
+      return;
+    }
+    if (formData.duration <= 0) {
+      setFormError('Длительность должна быть больше 0');
+      return;
+    }
+
+    if (editingService) {
+      updateService(editingService.id, {
+        name: formData.name,
+        description: formData.description,
+        price: formData.price * 100,
+        duration: formData.duration,
+        categoryId: formData.categoryId,
+      });
+    } else {
+      addService({
+        organizationId: provider.organizationId,
+        providerId: provider.id,
+        name: formData.name,
+        description: formData.description,
+        price: formData.price * 100,
+        duration: formData.duration,
+        status: 'ACTIVE',
+        categoryId: formData.categoryId,
+      });
+    }
+    
+    setShowAddModal(false);
+    setFormError(null);
+  };
+
+  const handleDelete = (id: string) => {
+    deleteService(id);
+    setShowDeleteConfirm(null);
+  };
+
+  const handleToggleStatus = (service: Service) => {
+    updateService(service.id, {
+      status: service.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    });
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Услуги</h1>
-        <Button onClick={() => setShowAddModal(true)}>+ Добавить услугу</Button>
+        <Button onClick={handleOpenAdd}>+ Добавить услугу</Button>
       </div>
 
-      <div className="space-y-3">
-        {providerServices.map(service => (
-          <Card key={service.id} className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900">{service.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">{service.description}</p>
-                <p className="text-xs text-gray-400 mt-1">⏱ {service.duration} мин</p>
+      {providerServices.length === 0 ? (
+        <Card className="p-8 text-center">
+          <div className="text-4xl mb-3">📋</div>
+          <h3 className="text-lg font-semibold text-gray-900">У вас пока нет услуг</h3>
+          <p className="text-gray-500 mt-2">Добавьте первую услугу, чтобы клиенты могли записываться</p>
+          <Button className="mt-4" onClick={handleOpenAdd}>Добавить услугу</Button>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {providerServices.map(service => (
+            <Card key={service.id} className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">{service.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">{service.description}</p>
+                  <p className="text-xs text-gray-400 mt-1">⏱ {service.duration} мин</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900">{formatCurrency(service.price)}</p>
+                  <Badge status={service.status} />
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">{formatCurrency(service.price)}</p>
-                <Badge status={service.status} />
+              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                <Button size="sm" variant="secondary" onClick={() => handleOpenEdit(service)}>Редактировать</Button>
+                <Button size="sm" variant="ghost" onClick={() => handleToggleStatus(service)}>
+                  {service.status === 'ACTIVE' ? 'Деактивировать' : 'Активировать'}
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => setShowDeleteConfirm(service.id)}>Удалить</Button>
               </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Добавить услугу">
+      <Modal 
+        isOpen={showAddModal} 
+        onClose={() => setShowAddModal(false)} 
+        title={editingService ? 'Редактировать услугу' : 'Добавить услугу'}
+      >
         <div className="space-y-4">
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {formError}
+            </div>
+          )}
+          
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Название</label>
-            <input className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Название услуги" />
+            <label className="block text-sm font-medium text-gray-700">Название *</label>
+            <input 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              placeholder="Например: Маникюр классический"
+              value={formData.name}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+            />
           </div>
+          
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">Описание</label>
-            <textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Описание" rows={3} />
+            <textarea 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              placeholder="Опишите услугу..."
+              rows={3}
+              value={formData.description}
+              onChange={e => setFormData({...formData, description: e.target.value})}
+            />
           </div>
+          
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Цена (₽)</label>
-              <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="1500" />
+              <label className="block text-sm font-medium text-gray-700">Цена (₽) *</label>
+              <input 
+                type="number" 
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                placeholder="1500"
+                value={formData.price}
+                onChange={e => setFormData({...formData, price: Number(e.target.value)})}
+              />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Длительность (мин)</label>
-              <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="60" />
+              <label className="block text-sm font-medium text-gray-700">Длительность (мин) *</label>
+              <input 
+                type="number"
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                placeholder="60"
+                value={formData.duration}
+                onChange={e => setFormData({...formData, duration: Number(e.target.value)})}
+              />
             </div>
           </div>
-          <Button className="w-full" onClick={() => setShowAddModal(false)}>Сохранить</Button>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Категория</label>
+            <select 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              value={formData.categoryId}
+              onChange={e => setFormData({...formData, categoryId: e.target.value})}
+            >
+              <option value="cat-1">💅 Маникюр</option>
+              <option value="cat-2">🦶 Педикюр</option>
+              <option value="cat-3">💇 Волосы</option>
+              <option value="cat-4">✨ Косметология</option>
+              <option value="cat-5">💆 Массаж</option>
+              <option value="cat-6">👁 Брови и ресницы</option>
+            </select>
+          </div>
+          
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setShowAddModal(false)} className="flex-1">
+              Отмена
+            </Button>
+            <Button onClick={handleSave} className="flex-1">
+              {editingService ? 'Сохранить' : 'Создать'}
+            </Button>
+          </div>
         </div>
       </Modal>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Удалить услугу?</h3>
+            <p className="text-gray-500 mt-2">Это действие нельзя отменить. Услуга будет удалена навсегда.</p>
+            <div className="flex gap-3 mt-6">
+              <Button variant="secondary" onClick={() => setShowDeleteConfirm(null)} className="flex-1">
+                Отмена
+              </Button>
+              <Button variant="danger" onClick={() => handleDelete(showDeleteConfirm)} className="flex-1">
+                Удалить
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -445,13 +625,14 @@ export function ProviderAnalytics() {
 export function ProviderProfile() {
   const { currentUser } = useAuthStore();
   const { wallets, transactions, promotions, advertisements, premiumSubscriptions } = useDataStore();
+  const provider = useCurrentProvider();
+  const wallet = useCurrentWallet();
   const [activeTab, setActiveTab] = useState('profile');
   
-  const wallet = wallets.find(w => w.ownerId === 'prov-1');
-  const walletTransactions = transactions.filter(t => t.walletId === 'wallet-1');
-  const providerPromotions = promotions.filter(p => p.providerId === 'prov-1');
-  const providerAds = advertisements.filter(a => a.providerId === 'prov-1');
-  const providerPremium = premiumSubscriptions.find((p: PremiumSubscription) => p.providerId === 'prov-1');
+  const walletTransactions = transactions.filter(t => t.walletId === wallet?.id);
+  const providerPromotions = promotions.filter(p => p.providerId === provider?.id);
+  const providerAds = advertisements.filter(a => a.providerId === provider?.id);
+  const providerPremium = premiumSubscriptions.find((p: PremiumSubscription) => p.providerId === provider?.id);
 
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState(5000);
@@ -579,64 +760,20 @@ export function ProviderProfile() {
 
       {/* Promotion Tab */}
       {activeTab === 'promotion' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Продвижение</h3>
-            <Button>Создать продвижение</Button>
-          </div>
-          
-          {providerPromotions.length === 0 ? (
-            <EmptyState icon="🚀" title="Нет продвижений" description="Создайте продвижение для увеличения видимости" />
-          ) : (
-            providerPromotions.map(promo => (
-              <Card key={promo.id} className="p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{promo.type === 'TOP_LISTING' ? 'Топ размещение' : promo.type}</h4>
-                    <p className="text-sm text-gray-500">{formatDate(promo.startsAt)} — {formatDate(promo.endsAt)}</p>
-                  </div>
-                  <div className="text-right">
-                    <Badge status={promo.status} />
-                    <p className="text-sm text-gray-500 mt-1">Потрачено: {formatCurrency(promo.spent)} из {formatCurrency(promo.budget)}</p>
-                  </div>
-                </div>
-                <div className="mt-3 w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-violet-500 h-2 rounded-full" style={{ width: `${(promo.spent / promo.budget) * 100}%` }}></div>
-                </div>
-              </Card>
-            ))
-          )}
-        </div>
+        <PromotionTab 
+          promotions={providerPromotions} 
+          providerId={provider?.id || ''}
+          organizationId={provider?.organizationId || ''}
+        />
       )}
 
       {/* Ads Tab */}
       {activeTab === 'ads' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Реклама</h3>
-            <Button>Создать рекламу</Button>
-          </div>
-          
-          {providerAds.length === 0 ? (
-            <EmptyState icon="📢" title="Нет рекламных кампаний" />
-          ) : (
-            providerAds.map(ad => (
-              <Card key={ad.id} className="p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{ad.title}</h4>
-                    <p className="text-sm text-gray-500">{ad.description}</p>
-                    <p className="text-xs text-gray-400 mt-1">{formatDate(ad.startsAt)} — {formatDate(ad.endsAt)}</p>
-                  </div>
-                  <div className="text-right">
-                    <Badge status={ad.status} />
-                    <p className="text-sm text-gray-500 mt-1">{formatCurrency(ad.spent)} / {formatCurrency(ad.budget)}</p>
-                  </div>
-                </div>
-              </Card>
-            ))
-          )}
-        </div>
+        <AdsTab 
+          ads={providerAds} 
+          providerId={provider?.id || ''}
+          organizationId={provider?.organizationId || ''}
+        />
       )}
 
       {/* Premium Tab */}
@@ -679,6 +816,361 @@ export function ProviderProfile() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============ PROMOTION TAB ============
+function PromotionTab({ promotions, providerId, organizationId }: { promotions: any[]; providerId: string; organizationId: string }) {
+  const { addPromotion, updatePromotion } = useDataStore();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [formData, setFormData] = useState<{
+    type: 'TOP_LISTING' | 'FEATURED' | 'DISCOUNT';
+    budget: number;
+    durationDays: number;
+  }>({
+    type: 'TOP_LISTING',
+    budget: 3000,
+    durationDays: 30,
+  });
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleCreate = () => {
+    if (formData.budget < 500) {
+      setFormError('Минимальный бюджет 500 ₽');
+      return;
+    }
+    if (formData.durationDays < 1) {
+      setFormError('Минимальный срок 1 день');
+      return;
+    }
+
+    const startsAt = new Date();
+    const endsAt = new Date();
+    endsAt.setDate(endsAt.getDate() + formData.durationDays);
+
+    const { providers } = useDataStore.getState();
+    const provider = providers.find(p => p.id === providerId);
+    
+    addPromotion({
+      organizationId,
+      providerId,
+      providerName: provider?.displayName || 'Мастер',
+      type: formData.type,
+      status: 'ACTIVE',
+      budget: formData.budget * 100,
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+    });
+
+    setShowCreateModal(false);
+    setFormError(null);
+    setFormData({ type: 'TOP_LISTING', budget: 3000, durationDays: 30 });
+  };
+
+  const handlePause = (id: string, currentStatus: string) => {
+    updatePromotion(id, { status: currentStatus === 'PAUSED' ? 'ACTIVE' : 'PAUSED' });
+  };
+
+  const handleStop = (id: string) => {
+    updatePromotion(id, { status: 'COMPLETED' });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Продвижение</h3>
+        <Button onClick={() => setShowCreateModal(true)}>Создать продвижение</Button>
+      </div>
+      
+      {promotions.length === 0 ? (
+        <Card className="p-8 text-center">
+          <div className="text-4xl mb-3">🚀</div>
+          <h3 className="text-lg font-semibold text-gray-900">Нет продвижений</h3>
+          <p className="text-gray-500 mt-2">Создайте продвижение для увеличения видимости вашего профиля</p>
+          <Button className="mt-4" onClick={() => setShowCreateModal(true)}>Создать продвижение</Button>
+        </Card>
+      ) : (
+        promotions.map(promo => (
+          <Card key={promo.id} className="p-5">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900">
+                  {promo.type === 'TOP_LISTING' ? '🏆 Топ размещение' : 
+                   promo.type === 'FEATURED' ? '⭐ Выделение профиля' : 
+                   '🎯 Продвижение услуги'}
+                </h4>
+                <p className="text-sm text-gray-500 mt-1">
+                  {formatDate(promo.startsAt)} — {formatDate(promo.endsAt)}
+                </p>
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Потрачено: {formatCurrency(promo.spent)}</span>
+                    <span>Бюджет: {formatCurrency(promo.budget)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div 
+                      className="bg-violet-500 h-2 rounded-full transition-all" 
+                      style={{ width: `${Math.min((promo.spent / promo.budget) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="ml-4 text-right">
+                <Badge status={promo.status} />
+              </div>
+            </div>
+            {(promo.status === 'ACTIVE' || promo.status === 'PAUSED') && (
+              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                <Button size="sm" variant="secondary" onClick={() => handlePause(promo.id, promo.status)}>
+                  {promo.status === 'PAUSED' ? 'Возобновить' : 'Приостановить'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleStop(promo.id)}>
+                  Завершить
+                </Button>
+              </div>
+            )}
+          </Card>
+        ))
+      )}
+
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Создать продвижение">
+        <div className="space-y-4">
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {formError}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Тип продвижения</label>
+            <select 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              value={formData.type}
+              onChange={e => setFormData({...formData, type: e.target.value as 'TOP_LISTING' | 'FEATURED' | 'DISCOUNT'})}
+            >
+              <option value="TOP_LISTING">🏆 Топ размещение — ваш профиль в начале списка</option>
+              <option value="FEATURED">⭐ Выделение профиля — особая метка</option>
+              <option value="DISCOUNT">🎯 Продвижение услуги</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Бюджет (₽)</label>
+            <input 
+              type="number"
+              min="500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              value={formData.budget}
+              onChange={e => setFormData({...formData, budget: Number(e.target.value)})}
+            />
+            <p className="text-xs text-gray-400">Минимум 500 ₽</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Срок (дней)</label>
+            <input 
+              type="number"
+              min="1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              value={formData.durationDays}
+              onChange={e => setFormData({...formData, durationDays: Number(e.target.value)})}
+            />
+          </div>
+
+          <div className="bg-violet-50 rounded-lg p-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Бюджет</span>
+              <span className="font-medium">{formData.budget.toLocaleString()} ₽</span>
+            </div>
+            <div className="flex justify-between text-sm mt-2">
+              <span className="text-gray-600">Срок</span>
+              <span className="font-medium">{formData.durationDays} дней</span>
+            </div>
+            <div className="flex justify-between text-sm mt-2 pt-2 border-t border-violet-200">
+              <span className="font-medium text-gray-900">Итого</span>
+              <span className="font-bold text-violet-700">{formData.budget.toLocaleString()} ₽</span>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)} className="flex-1">
+              Отмена
+            </Button>
+            <Button onClick={handleCreate} className="flex-1">
+              Создать
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ============ ADS TAB ============
+function AdsTab({ ads, providerId, organizationId }: { ads: any[]; providerId: string; organizationId: string }) {
+  const { addAdvertisement, updateAdvertisement } = useDataStore();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    budget: 1000,
+    durationDays: 14,
+  });
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleCreate = () => {
+    if (!formData.title.trim()) {
+      setFormError('Введите название рекламы');
+      return;
+    }
+    if (formData.budget < 100) {
+      setFormError('Минимальный бюджет 100 ₽');
+      return;
+    }
+
+    const startsAt = new Date();
+    const endsAt = new Date();
+    endsAt.setDate(endsAt.getDate() + formData.durationDays);
+
+    const { providers } = useDataStore.getState();
+    const provider = providers.find(p => p.id === providerId);
+
+    addAdvertisement({
+      organizationId,
+      providerId,
+      providerName: provider?.displayName || 'Мастер',
+      title: formData.title,
+      description: formData.description,
+      status: 'DRAFT',
+      budget: formData.budget * 100,
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+    });
+
+    setShowCreateModal(false);
+    setFormError(null);
+    setFormData({ title: '', description: '', budget: 1000, durationDays: 14 });
+  };
+
+  const handleActivate = (id: string) => {
+    updateAdvertisement(id, { status: 'ACTIVE' });
+  };
+
+  const handlePause = (id: string, currentStatus: string) => {
+    updateAdvertisement(id, { status: currentStatus === 'PAUSED' ? 'ACTIVE' : 'PAUSED' });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Реклама</h3>
+        <Button onClick={() => setShowCreateModal(true)}>Создать рекламу</Button>
+      </div>
+      
+      {ads.length === 0 ? (
+        <Card className="p-8 text-center">
+          <div className="text-4xl mb-3">📢</div>
+          <h3 className="text-lg font-semibold text-gray-900">Нет рекламных кампаний</h3>
+          <p className="text-gray-500 mt-2">Создайте рекламную кампанию для привлечения клиентов</p>
+          <Button className="mt-4" onClick={() => setShowCreateModal(true)}>Создать рекламу</Button>
+        </Card>
+      ) : (
+        ads.map(ad => (
+          <Card key={ad.id} className="p-5">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900">{ad.title}</h4>
+                <p className="text-sm text-gray-500 mt-1">{ad.description}</p>
+                <p className="text-xs text-gray-400 mt-2">
+                  {formatDate(ad.startsAt)} — {formatDate(ad.endsAt)}
+                </p>
+              </div>
+              <div className="ml-4 text-right">
+                <Badge status={ad.status} />
+                <p className="text-sm text-gray-500 mt-1">
+                  {formatCurrency(ad.spent)} / {formatCurrency(ad.budget)}
+                </p>
+              </div>
+            </div>
+            {ad.status === 'DRAFT' && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <Button size="sm" onClick={() => handleActivate(ad.id)}>Активировать</Button>
+              </div>
+            )}
+            {(ad.status === 'ACTIVE' || ad.status === 'PAUSED') && (
+              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                <Button size="sm" variant="secondary" onClick={() => handlePause(ad.id, ad.status)}>
+                  {ad.status === 'PAUSED' ? 'Возобновить' : 'Приостановить'}
+                </Button>
+              </div>
+            )}
+          </Card>
+        ))
+      )}
+
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Создать рекламу">
+        <div className="space-y-4">
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {formError}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Название *</label>
+            <input 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              placeholder="Например: Весенняя акция -20%"
+              value={formData.title}
+              onChange={e => setFormData({...formData, title: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Описание</label>
+            <textarea 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              placeholder="Опишите вашу акцию..."
+              rows={3}
+              value={formData.description}
+              onChange={e => setFormData({...formData, description: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Бюджет (₽)</label>
+            <input 
+              type="number"
+              min="100"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              value={formData.budget}
+              onChange={e => setFormData({...formData, budget: Number(e.target.value)})}
+            />
+            <p className="text-xs text-gray-400">Минимум 100 ₽</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Срок (дней)</label>
+            <input 
+              type="number"
+              min="1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              value={formData.durationDays}
+              onChange={e => setFormData({...formData, durationDays: Number(e.target.value)})}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)} className="flex-1">
+              Отмена
+            </Button>
+            <Button onClick={handleCreate} className="flex-1">
+              Создать
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

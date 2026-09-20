@@ -44,6 +44,22 @@ interface DataState {
   addAuditLog: (log: AuditLog) => void;
   sendMessage: (conversationId: string, text: string, senderId: string, senderName: string, receiverId: string) => void;
   markMessagesRead: (conversationId: string, userId: string) => void;
+  
+  // Services CRUD
+  addService: (service: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateService: (id: string, updates: Partial<Service>) => void;
+  deleteService: (id: string) => void;
+  
+  // Promotions CRUD
+  addPromotion: (promotion: Omit<Promotion, 'id' | 'createdAt' | 'spent'>) => void;
+  updatePromotion: (id: string, updates: Partial<Promotion>) => void;
+  
+  // Advertisements CRUD
+  addAdvertisement: (ad: Omit<Advertisement, 'id' | 'createdAt' | 'spent'>) => void;
+  updateAdvertisement: (id: string, updates: Partial<Advertisement>) => void;
+  
+  // Providers
+  updateProvider: (id: string, updates: Partial<Provider>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -232,6 +248,68 @@ export const useDataStore = create<DataState>((set) => ({
       c.id === conversationId
         ? { ...c, unreadCount: 0 }
         : c
+    ),
+  })),
+  
+  // Services CRUD
+  addService: (service) => set(state => {
+    const newService: Service = {
+      ...service,
+      id: `svc-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return { services: [...state.services, newService] };
+  }),
+  
+  updateService: (id, updates) => set(state => ({
+    services: state.services.map(s => 
+      s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+    ),
+  })),
+  
+  deleteService: (id) => set(state => ({
+    services: state.services.filter(s => s.id !== id),
+  })),
+  
+  // Promotions CRUD
+  addPromotion: (promotion) => set(state => {
+    const newPromotion: Promotion = {
+      ...promotion,
+      id: `promo-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      spent: 0,
+    };
+    return { promotions: [...state.promotions, newPromotion] };
+  }),
+  
+  updatePromotion: (id, updates) => set(state => ({
+    promotions: state.promotions.map(p => 
+      p.id === id ? { ...p, ...updates } : p
+    ),
+  })),
+  
+  // Advertisements CRUD
+  addAdvertisement: (ad) => set(state => {
+    const newAd: Advertisement = {
+      ...ad,
+      id: `ad-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      spent: 0,
+    };
+    return { advertisements: [...state.advertisements, newAd] };
+  }),
+  
+  updateAdvertisement: (id, updates) => set(state => ({
+    advertisements: state.advertisements.map(a => 
+      a.id === id ? { ...a, ...updates } : a
+    ),
+  })),
+  
+  // Providers
+  updateProvider: (id, updates) => set(state => ({
+    providers: state.providers.map(p => 
+      p.id === id ? { ...p, ...updates } : p
     ),
   })),
 }));
