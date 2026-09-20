@@ -269,6 +269,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     { path: '/search', label: 'Поиск', icon: '🔍' },
     { path: '/bookings', label: 'Записи', icon: '📅' },
     { path: '/masters', label: 'Мастера', icon: '💅' },
+    { path: '/messages', label: 'Сообщения', icon: '💬' },
     { path: '/promotions', label: 'Акции', icon: '🎁' },
     { path: '/profile', label: 'Профиль', icon: '👤' },
   ];
