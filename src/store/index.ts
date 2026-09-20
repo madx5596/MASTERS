@@ -89,20 +89,14 @@ export const useAuthStore = create<AuthState>((set) => ({
           return true;
         }
         return false;
-      } catch {
-        // Fallback to mock in demo mode
-        if (!API_AVAILABLE) {
-          const user = mockData.users.find(u => u.email === email);
-          if (user) {
-            set({ currentUser: user, isAuthenticated: true, isLoading: false });
-            return true;
-          }
-        }
+      } catch (error) {
+        // In REAL MODE, don't fallback to mock - show error
+        console.error('Login failed:', error);
         return false;
       }
     }
 
-    // Mock login (development fallback)
+    // Mock login (DEMO MODE only)
     const user = mockData.users.find(u => u.email === email);
     if (user) {
       set({ currentUser: user, isAuthenticated: true, isLoading: false });
@@ -120,6 +114,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   switchRole: (role: User['role']) => {
+    // CRITICAL: switchRole is ONLY allowed in DEMO MODE
+    // In REAL MODE, role comes from backend authentication
+    if (API_AVAILABLE) {
+      console.warn('switchRole() is disabled in REAL MODE. Role is determined by backend authentication.');
+      return;
+    }
+    
+    // DEMO MODE only
     const user = mockData.users.find(u => u.role === role);
     if (user) {
       set({ currentUser: user, isAuthenticated: true });
@@ -176,8 +178,30 @@ export const useDataStore = create<DataState>((set) => ({
   error: null,
 
   fetchData: async () => {
-    if (!API_AVAILABLE) return;
+    // DEMO MODE: use mockData as initial state
+    if (!API_AVAILABLE) {
+      set({
+        providers: mockData.providers,
+        customers: mockData.customers,
+        services: mockData.services,
+        appointments: mockData.appointments,
+        wallets: mockData.wallets,
+        transactions: mockData.transactions,
+        payments: mockData.payments,
+        promotions: mockData.promotions,
+        advertisements: mockData.advertisements,
+        premiumSubscriptions: mockData.premiumSubscriptions,
+        notifications: mockData.notifications,
+        auditLogs: mockData.auditLogs,
+        conversations: mockData.conversations,
+        messages: mockData.messages,
+        isLoading: false,
+        error: null,
+      });
+      return;
+    }
     
+    // REAL MODE: fetch from API, NO mockData fallback
     set({ isLoading: true, error: null });
     try {
       const [providersRes, customersRes, servicesRes, appointmentsRes, walletsRes, paymentsRes, notificationsRes] = await Promise.all([
@@ -190,18 +214,27 @@ export const useDataStore = create<DataState>((set) => ({
         api.get<Notification[]>('/api/notifications'),
       ]);
 
+      // CRITICAL: In REAL MODE, use API data only (no mockData fallback)
+      // If API returns empty array, that's valid - show empty state
+      // If API fails, show error state
       set({
-        providers: providersRes.data || mockData.providers,
-        customers: customersRes.data || mockData.customers,
-        services: servicesRes.data || mockData.services,
-        appointments: appointmentsRes.data || mockData.appointments,
-        wallets: walletsRes.data || mockData.wallets,
-        payments: paymentsRes.data || mockData.payments,
-        notifications: notificationsRes.data || mockData.notifications,
+        providers: providersRes.data || [],
+        customers: customersRes.data || [],
+        services: servicesRes.data || [],
+        appointments: appointmentsRes.data || [],
+        wallets: walletsRes.data || [],
+        payments: paymentsRes.data || [],
+        notifications: notificationsRes.data || [],
         isLoading: false,
+        error: null,
       });
     } catch (error) {
-      set({ error: 'Failed to fetch data', isLoading: false });
+      // REAL MODE: show error state, don't fallback to mockData
+      console.error('Failed to fetch data:', error);
+      set({ 
+        error: 'Не удалось загрузить данные. Проверьте подключение к серверу.',
+        isLoading: false 
+      });
     }
   },
 
@@ -211,9 +244,19 @@ export const useDataStore = create<DataState>((set) => ({
   })),
   addTransaction: (tx) => set(state => ({ transactions: [...state.transactions, tx] })),
   addPayment: (payment) => set(state => ({ payments: [...state.payments, payment] })),
-  updateWalletBalance: (walletId, newBalance) => set(state => ({
-    wallets: state.wallets.map(w => w.id === walletId ? { ...w, balance: newBalance, updatedAt: new Date().toISOString() } : w)
-  })),
+  
+  // DEPRECATED: updateWalletBalance should NOT be used in REAL MODE
+  // In REAL MODE, wallet balance is managed by backend through transactions
+  // This method is kept for DEMO MODE only
+  updateWalletBalance: (walletId, newBalance) => {
+    if (API_AVAILABLE) {
+      console.warn('updateWalletBalance() is disabled in REAL MODE. Use backend API for wallet operations.');
+      return;
+    }
+    set(state => ({
+      wallets: state.wallets.map(w => w.id === walletId ? { ...w, balance: newBalance, updatedAt: new Date().toISOString() } : w)
+    }));
+  },
   markNotificationRead: (id) => set(state => ({
     notifications: state.notifications.map(n => n.id === id ? { ...n, isRead: true } : n)
   })),
