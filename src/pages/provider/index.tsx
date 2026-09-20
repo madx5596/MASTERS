@@ -3,16 +3,19 @@ import { useDataStore, useAuthStore } from '../../store';
 import { Card, Button, Badge, Avatar, StatCard, Modal, Tabs, Table, EmptyState } from '../../components/ui';
 import { formatCurrency, formatTime, formatDate, formatDateTime, getTransactionTypeLabel, getTransactionTypeColor } from '../../utils/format';
 import type { PremiumSubscription } from '../../types';
+import { ChatPage } from '../shared/ChatPage';
+import { useCurrentProvider, useCurrentWallet } from '../../hooks/useCurrentUser';
 
 // ============ PROVIDER TODAY ============
 export function ProviderToday() {
   const { currentUser } = useAuthStore();
   const dataStore = useDataStore();
+  const provider = useCurrentProvider();
+  const wallet = useCurrentWallet();
   const today = new Date().toISOString().split('T')[0];
   const todayAppointments = dataStore.appointments.filter(a => 
-    a.providerId === 'prov-1' && a.startAt.startsWith(today)
+    a.providerId === provider?.id && a.startAt.startsWith(today)
   );
-  const wallet = dataStore.wallets.find(w => w.ownerId === 'prov-1');
 
   return (
     <div className="space-y-6">
@@ -70,10 +73,11 @@ export function ProviderToday() {
 // ============ PROVIDER CALENDAR ============
 export function ProviderCalendar() {
   const { appointments } = useDataStore();
+  const provider = useCurrentProvider();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'day' | 'week'>('week');
   
-  const providerAppts = appointments.filter(a => a.providerId === 'prov-1');
+  const providerAppts = appointments.filter(a => a.providerId === provider?.id);
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(currentDate);
     d.setDate(d.getDate() - d.getDay() + i + 1);
@@ -149,9 +153,24 @@ export function ProviderCalendar() {
 
 // ============ PROVIDER BOOKINGS ============
 export function ProviderBookings() {
-  const { appointments } = useDataStore();
+  const { appointments, updateAppointmentStatus } = useDataStore();
+  const provider = useCurrentProvider();
   const [tab, setTab] = useState('all');
-  const providerAppts = appointments.filter(a => a.providerId === 'prov-1');
+  const providerAppts = appointments.filter(a => a.providerId === provider?.id);
+
+  const handleConfirm = (aptId: string) => {
+    updateAppointmentStatus(aptId, 'CONFIRMED');
+  };
+
+  const handleCancel = (aptId: string) => {
+    if (confirm('Отменить запись?')) {
+      updateAppointmentStatus(aptId, 'CANCELLED');
+    }
+  };
+
+  const handleComplete = (aptId: string) => {
+    updateAppointmentStatus(aptId, 'COMPLETED');
+  };
   
   const filtered = tab === 'all' ? providerAppts :
     tab === 'pending' ? providerAppts.filter(a => a.status === 'PENDING') :
@@ -197,9 +216,12 @@ export function ProviderBookings() {
                   <Badge status={apt.status} />
                   {apt.status === 'PENDING' && (
                     <div className="flex gap-1">
-                      <Button size="sm" variant="primary">✓</Button>
-                      <Button size="sm" variant="danger">✕</Button>
+                      <Button size="sm" variant="primary" onClick={() => handleConfirm(apt.id)}>✓</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleCancel(apt.id)}>✕</Button>
                     </div>
+                  )}
+                  {apt.status === 'CONFIRMED' && (
+                    <Button size="sm" variant="secondary" onClick={() => handleComplete(apt.id)}>Завершить</Button>
                   )}
                 </div>
               </div>
@@ -214,7 +236,8 @@ export function ProviderBookings() {
 // ============ PROVIDER CLIENTS ============
 export function ProviderClients() {
   const { appointments } = useDataStore();
-  const providerAppts = appointments.filter(a => a.providerId === 'prov-1');
+  const provider = useCurrentProvider();
+  const providerAppts = appointments.filter(a => a.providerId === provider?.id);
   
   const clientMap = new Map<string, { name: string; count: number; totalSpent: number; lastVisit: string }>();
   providerAppts.forEach(apt => {
@@ -259,8 +282,9 @@ export function ProviderClients() {
 // ============ PROVIDER SERVICES ============
 export function ProviderServices() {
   const { services } = useDataStore();
+  const provider = useCurrentProvider();
   const [showAddModal, setShowAddModal] = useState(false);
-  const providerServices = services.filter(s => s.providerId === 'prov-1');
+  const providerServices = services.filter(s => s.providerId === provider?.id);
 
   return (
     <div className="space-y-6">
@@ -362,7 +386,7 @@ export function ProviderSchedule() {
         </select>
       </Card>
 
-      <Button className="w-full sm:w-auto">Сохранить расписание</Button>
+      <Button className="w-full sm:w-auto" onClick={() => alert('Расписание сохранено (демо)')}>Сохранить расписание</Button>
     </div>
   );
 }
@@ -664,11 +688,7 @@ export function ProviderMessages() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Сообщения</h1>
-      <Card className="p-8 text-center">
-        <div className="text-4xl mb-3">💬</div>
-        <h3 className="text-lg font-semibold text-gray-900">Сообщения</h3>
-        <p className="text-gray-500 mt-2">Функция сообщений будет доступна скоро</p>
-      </Card>
+      <ChatPage />
     </div>
   );
 }

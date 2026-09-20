@@ -316,6 +316,28 @@ export interface SystemHealth {
   notifications: 'ONLINE' | 'WARNING' | 'ERROR';
 }
 
+// ============ MESSAGES / CHAT ============
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  receiverId: string;
+  text: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  participantIds: string[];
+  participantNames: string[];
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+}
+
 // ============ API RESPONSE ============
 
 export interface ApiResponse<T> {

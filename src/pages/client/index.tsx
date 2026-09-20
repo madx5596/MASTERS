@@ -4,6 +4,9 @@ import { useDataStore, useAuthStore } from '../../store';
 import { Card, Button, Badge, Avatar, Modal, StatCard } from '../../components/ui';
 import { formatCurrency, formatTime, formatDate } from '../../utils/format';
 import { serviceCategories } from '../../data/mockData';
+import { ChatPage } from '../shared/ChatPage';
+import { useCurrentCustomer } from '../../hooks/useCurrentUser';
+import { appointmentsApi } from '../../api';
 
 // ============ CLIENT HOME ============
 export function ClientHome() {
@@ -44,7 +47,7 @@ export function ClientHome() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {topProviders.map(provider => (
-            <Link key={provider.id} to={`/client/masters`}>
+            <Link key={provider.id} to={`/client/masters/${provider.id}`}>
               <Card className="p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <Avatar name={provider.displayName} size="lg" />
@@ -81,7 +84,7 @@ export function ClientHome() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900">{formatCurrency(service.price)}</p>
-                  <Link to="/client/search" className="text-xs text-violet-600 font-medium">Записаться →</Link>
+                  <Link to={`/client/booking/${service.providerId}`} className="text-xs text-violet-600 font-medium">Записаться →</Link>
                 </div>
               </Card>
             );
@@ -146,7 +149,9 @@ export function ClientSearch() {
                   <span className="text-lg font-bold text-gray-900">{formatCurrency(service.price)}</span>
                   <span className="text-sm text-gray-400 ml-2">{service.duration} мин</span>
                 </div>
-                <Button size="sm">Записаться</Button>
+                <Link to={`/client/booking/${service.providerId}`}>
+                  <Button size="sm">Записаться</Button>
+                </Link>
               </div>
             </Card>
           );
@@ -158,16 +163,24 @@ export function ClientSearch() {
 
 // ============ CLIENT BOOKINGS ============
 export function ClientBookings() {
-  const { appointments } = useDataStore();
+  const { appointments, updateAppointmentStatus } = useDataStore();
   const { currentUser } = useAuthStore();
+  const customer = useCurrentCustomer();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   
-  const customerAppointments = appointments.filter(a => a.customerId === 'cust-1');
+  const customerAppointments = appointments.filter(a => a.customerId === customer?.id);
   const today = new Date().toISOString().split('T')[0];
   const upcoming = customerAppointments.filter(a => a.startAt >= today && a.status !== 'CANCELLED');
   const past = customerAppointments.filter(a => a.startAt < today || a.status === 'COMPLETED' || a.status === 'CANCELLED');
 
   const displayAppointments = tab === 'upcoming' ? upcoming : past;
+
+  const handleCancel = async (aptId: string) => {
+    if (confirm('Вы уверены, что хотите отменить запись?')) {
+      updateAppointmentStatus(aptId, 'CANCELLED');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -207,8 +220,8 @@ export function ClientBookings() {
               </div>
               {tab === 'upcoming' && apt.status !== 'CANCELLED' && (
                 <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <Button variant="secondary" size="sm">Перенести</Button>
-                  <Button variant="ghost" size="sm">Отменить</Button>
+                  <Button variant="secondary" size="sm" onClick={() => navigate(`/client/booking/${apt.providerId}`)}>Перенести</Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleCancel(apt.id)}>Отменить</Button>
                 </div>
               )}
             </Card>
@@ -289,11 +302,22 @@ export function ClientPromotions() {
   );
 }
 
+// ============ CLIENT MESSAGES ============
+export function ClientMessages() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-gray-900">Сообщения</h1>
+      <ChatPage />
+    </div>
+  );
+}
+
 // ============ CLIENT PROFILE ============
 export function ClientProfile() {
   const { currentUser } = useAuthStore();
   const { appointments } = useDataStore();
-  const customerAppointments = appointments.filter(a => a.customerId === 'cust-1');
+  const customer = useCurrentCustomer();
+  const customerAppointments = appointments.filter(a => a.customerId === customer?.id);
 
   return (
     <div className="space-y-6">

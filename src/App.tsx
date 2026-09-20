@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store';
 import { ProviderLayout, AdminLayout, ClientLayout } from './components/layouts';
 import { LoginPage } from './pages/auth/LoginPage';
-import { ClientHome, ClientSearch, ClientBookings, ClientMasters, ClientPromotions, ClientProfile } from './pages/client';
+import { ClientHome, ClientSearch, ClientBookings, ClientMasters, ClientPromotions, ClientProfile, ClientMessages } from './pages/client';
 import { BookingFlow } from './pages/client/BookingFlow';
 import { ProviderDetail } from './pages/client/ProviderDetail';
 import { ProviderToday, ProviderCalendar, ProviderBookings, ProviderClients, ProviderServices, ProviderSchedule, ProviderAnalytics, ProviderProfile, ProviderMessages } from './pages/provider';
@@ -50,6 +50,7 @@ export default function App() {
                 <Route path="/bookings" element={<ClientBookings />} />
                 <Route path="/masters" element={<ClientMasters />} />
                 <Route path="/promotions" element={<ClientPromotions />} />
+                <Route path="/messages" element={<ClientMessages />} />
                 <Route path="/profile" element={<ClientProfile />} />
                 <Route path="/masters/:id" element={<ProviderDetail />} />
                 <Route path="/booking/:providerId" element={<BookingFlow />} />

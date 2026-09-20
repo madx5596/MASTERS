@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User, Appointment, Notification, Wallet, Transaction, Payment, Provider, Service, Promotion, Advertisement, PremiumSubscription, AuditLog } from '../types';
+import { User, Appointment, Notification, Wallet, Transaction, Payment, Provider, Service, Promotion, Advertisement, PremiumSubscription, AuditLog, Customer, Message, Conversation } from '../types';
 import * as mockData from '../data/mockData';
 import api from '../api/client';
 
@@ -18,6 +18,7 @@ interface AuthState {
 
 interface DataState {
   providers: Provider[];
+  customers: Customer[];
   services: Service[];
   appointments: Appointment[];
   wallets: Wallet[];
@@ -28,6 +29,8 @@ interface DataState {
   premiumSubscriptions: PremiumSubscription[];
   notifications: Notification[];
   auditLogs: AuditLog[];
+  conversations: Conversation[];
+  messages: Message[];
   isLoading: boolean;
   error: string | null;
   
@@ -39,6 +42,8 @@ interface DataState {
   updateWalletBalance: (walletId: string, newBalance: number) => void;
   markNotificationRead: (id: string) => void;
   addAuditLog: (log: AuditLog) => void;
+  sendMessage: (conversationId: string, text: string, senderId: string, senderName: string, receiverId: string) => void;
+  markMessagesRead: (conversationId: string, userId: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -138,6 +143,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 export const useDataStore = create<DataState>((set) => ({
   providers: mockData.providers,
+  customers: mockData.customers,
   services: mockData.services,
   appointments: mockData.appointments,
   wallets: mockData.wallets,
@@ -148,6 +154,8 @@ export const useDataStore = create<DataState>((set) => ({
   premiumSubscriptions: mockData.premiumSubscriptions,
   notifications: mockData.notifications,
   auditLogs: mockData.auditLogs,
+  conversations: mockData.conversations,
+  messages: mockData.messages,
   isLoading: false,
   error: null,
 
@@ -156,8 +164,9 @@ export const useDataStore = create<DataState>((set) => ({
     
     set({ isLoading: true, error: null });
     try {
-      const [providersRes, servicesRes, appointmentsRes, walletsRes, paymentsRes, notificationsRes] = await Promise.all([
+      const [providersRes, customersRes, servicesRes, appointmentsRes, walletsRes, paymentsRes, notificationsRes] = await Promise.all([
         api.get<Provider[]>('/api/providers'),
+        api.get<Customer[]>('/api/customers'),
         api.get<Service[]>('/api/services'),
         api.get<Appointment[]>('/api/appointments'),
         api.get<Wallet[]>('/api/wallets'),
@@ -167,6 +176,7 @@ export const useDataStore = create<DataState>((set) => ({
 
       set({
         providers: providersRes.data || mockData.providers,
+        customers: customersRes.data || mockData.customers,
         services: servicesRes.data || mockData.services,
         appointments: appointmentsRes.data || mockData.appointments,
         wallets: walletsRes.data || mockData.wallets,
@@ -192,4 +202,36 @@ export const useDataStore = create<DataState>((set) => ({
     notifications: state.notifications.map(n => n.id === id ? { ...n, isRead: true } : n)
   })),
   addAuditLog: (log) => set(state => ({ auditLogs: [...state.auditLogs, log] })),
+  sendMessage: (conversationId, text, senderId, senderName, receiverId) => set(state => {
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      conversationId,
+      senderId,
+      senderName,
+      receiverId,
+      text,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+    return {
+      messages: [...state.messages, newMessage],
+      conversations: state.conversations.map(c => 
+        c.id === conversationId 
+          ? { ...c, lastMessage: text, lastMessageAt: newMessage.createdAt }
+          : c
+      ),
+    };
+  }),
+  markMessagesRead: (conversationId, userId) => set(state => ({
+    messages: state.messages.map(m => 
+      m.conversationId === conversationId && m.receiverId === userId 
+        ? { ...m, isRead: true } 
+        : m
+    ),
+    conversations: state.conversations.map(c =>
+      c.id === conversationId
+        ? { ...c, unreadCount: 0 }
+        : c
+    ),
+  })),
 }));

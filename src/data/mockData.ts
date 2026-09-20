@@ -1,4 +1,4 @@
-import { User, Provider, Customer, Service, Appointment, Wallet, Transaction, Payment, Promotion, Advertisement, PremiumSubscription, Notification, Review, AuditLog, Schedule, ServiceCategory, Organization, PaymentSettings, SystemHealth } from '../types';
+import { User, Provider, Customer, Service, Appointment, Wallet, Transaction, Payment, Promotion, Advertisement, PremiumSubscription, Notification, Review, AuditLog, Schedule, ServiceCategory, Organization, PaymentSettings, SystemHealth, Message, Conversation } from '../types';
 
 export const organizations: Organization[] = [
   { id: 'org-1', name: 'Beauty Studio KRK', slug: 'beauty-studio-krk', businessType: 'BEAUTY', status: 'ACTIVE', ownerId: 'user-1', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' },
@@ -135,3 +135,138 @@ export const systemHealth: SystemHealth = {
   webhook: 'ONLINE',
   notifications: 'ONLINE',
 };
+
+// ============ CHAT / MESSAGES ============
+
+export const conversations: Conversation[] = [
+  {
+    id: 'conv-1',
+    participantIds: ['user-provider', 'user-customer'],
+    participantNames: ['Анна Иванова', 'Елена Смирнова'],
+    lastMessage: 'Здравствуйте! Подтверждаю запись на завтра в 10:00',
+    lastMessageAt: '2024-03-10T14:30:00Z',
+    unreadCount: 1,
+  },
+  {
+    id: 'conv-2',
+    participantIds: ['user-provider', 'user-customer2'],
+    participantNames: ['Анна Иванова', 'Ольга Козлова'],
+    lastMessage: 'Спасибо за маникюр, всё отлично!',
+    lastMessageAt: '2024-03-09T16:00:00Z',
+    unreadCount: 0,
+  },
+  {
+    id: 'conv-3',
+    participantIds: ['user-provider2', 'user-customer'],
+    participantNames: ['Мария Петрова', 'Елена Смирнова'],
+    lastMessage: 'Какое время вам удобно для стрижки?',
+    lastMessageAt: '2024-03-10T11:00:00Z',
+    unreadCount: 2,
+  },
+];
+
+export const messages: Message[] = [
+  // Conversation 1: Анна <-> Елена
+  {
+    id: 'msg-1',
+    conversationId: 'conv-1',
+    senderId: 'user-customer',
+    senderName: 'Елена Смирнова',
+    receiverId: 'user-provider',
+    text: 'Здравствуйте! Можно записаться на маникюр завтра?',
+    isRead: true,
+    createdAt: '2024-03-10T14:00:00Z',
+  },
+  {
+    id: 'msg-2',
+    conversationId: 'conv-1',
+    senderId: 'user-provider',
+    senderName: 'Анна Иванова',
+    receiverId: 'user-customer',
+    text: 'Здравствуйте! Да, конечно. Какое время вам удобно?',
+    isRead: true,
+    createdAt: '2024-03-10T14:10:00Z',
+  },
+  {
+    id: 'msg-3',
+    conversationId: 'conv-1',
+    senderId: 'user-customer',
+    senderName: 'Елена Смирнова',
+    receiverId: 'user-provider',
+    text: 'Можно на 10:00?',
+    isRead: true,
+    createdAt: '2024-03-10T14:15:00Z',
+  },
+  {
+    id: 'msg-4',
+    conversationId: 'conv-1',
+    senderId: 'user-provider',
+    senderName: 'Анна Иванова',
+    receiverId: 'user-customer',
+    text: 'Здравствуйте! Подтверждаю запись на завтра в 10:00',
+    isRead: false,
+    createdAt: '2024-03-10T14:30:00Z',
+  },
+  // Conversation 2: Анна <-> Ольга
+  {
+    id: 'msg-5',
+    conversationId: 'conv-2',
+    senderId: 'user-customer2',
+    senderName: 'Ольга Козлова',
+    receiverId: 'user-provider',
+    text: 'Анна, спасибо за маникюр, всё отлично!',
+    isRead: true,
+    createdAt: '2024-03-09T15:50:00Z',
+  },
+  {
+    id: 'msg-6',
+    conversationId: 'conv-2',
+    senderId: 'user-provider',
+    senderName: 'Анна Иванова',
+    receiverId: 'user-customer2',
+    text: 'Спасибо за маникюр, всё отлично!',
+    isRead: true,
+    createdAt: '2024-03-09T16:00:00Z',
+  },
+  // Conversation 3: Мария <-> Елена
+  {
+    id: 'msg-7',
+    conversationId: 'conv-3',
+    senderId: 'user-customer',
+    senderName: 'Елена Смирнова',
+    receiverId: 'user-provider2',
+    text: 'Мария, здравствуйте! Хочу записаться на стрижку',
+    isRead: true,
+    createdAt: '2024-03-10T10:30:00Z',
+  },
+  {
+    id: 'msg-8',
+    conversationId: 'conv-3',
+    senderId: 'user-provider2',
+    senderName: 'Мария Петрова',
+    receiverId: 'user-customer',
+    text: 'Здравствуйте, Елена! Конечно, когда вам удобно?',
+    isRead: true,
+    createdAt: '2024-03-10T10:45:00Z',
+  },
+  {
+    id: 'msg-9',
+    conversationId: 'conv-3',
+    senderId: 'user-customer',
+    senderName: 'Елена Смирнова',
+    receiverId: 'user-provider2',
+    text: 'Можно в эту субботу?',
+    isRead: false,
+    createdAt: '2024-03-10T10:50:00Z',
+  },
+  {
+    id: 'msg-10',
+    conversationId: 'conv-3',
+    senderId: 'user-provider2',
+    senderName: 'Мария Петрова',
+    receiverId: 'user-customer',
+    text: 'Какое время вам удобно для стрижки?',
+    isRead: false,
+    createdAt: '2024-03-10T11:00:00Z',
+  },
+];
