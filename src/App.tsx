@@ -4,6 +4,8 @@ import { useAuthStore } from './store';
 import { ProviderLayout, AdminLayout, ClientLayout } from './components/layouts';
 import { LoginPage } from './pages/auth/LoginPage';
 import { ClientHome, ClientSearch, ClientBookings, ClientMasters, ClientPromotions, ClientProfile } from './pages/client';
+import { BookingFlow } from './pages/client/BookingFlow';
+import { ProviderDetail } from './pages/client/ProviderDetail';
 import { ProviderToday, ProviderCalendar, ProviderBookings, ProviderClients, ProviderServices, ProviderSchedule, ProviderAnalytics, ProviderProfile, ProviderMessages } from './pages/provider';
 import { AdminDashboard, AdminUsers, AdminProviders, AdminCustomers, AdminServices, AdminAppointments, AdminPayments, AdminWallets, AdminTransactions, AdminPromotions, AdminAdvertisements, AdminPremium, AdminNotifications, AdminAudit, AdminSettings } from './pages/admin';
 
@@ -49,6 +51,9 @@ export default function App() {
                 <Route path="/masters" element={<ClientMasters />} />
                 <Route path="/promotions" element={<ClientPromotions />} />
                 <Route path="/profile" element={<ClientProfile />} />
+                <Route path="/masters/:id" element={<ProviderDetail />} />
+                <Route path="/booking/:providerId" element={<BookingFlow />} />
+                <Route path="/booking" element={<BookingFlow />} />
               </Routes>
             </ClientLayout>
           </ProtectedRoute>

@@ -1,7 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { createUser, findUserByEmail, verifyPassword } from '../services/users.js';
+import { createUser, findUserByEmail, verifyPassword, findUserById } from '../services/users.js';
 import { createAuditLog } from '../services/audit.js';
+import { createRefreshToken, verifyRefreshToken, revokeAllUserTokens } from '../services/refresh-tokens.js';
 import { config } from '../config/index.js';
 
 const registerSchema = z.object({
@@ -15,6 +16,10 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+});
+
+const refreshSchema = z.object({
+  refreshToken: z.string().min(1),
 });
 
 export async function authRoutes(app: FastifyInstance) {
@@ -46,11 +51,13 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     const token = app.jwt.sign({ id: user.id, email: user.email, role: user.role }, { expiresIn: config.jwt.accessTtl });
+    const refreshToken = await createRefreshToken(user.id);
 
     return reply.send({
       success: true,
       data: {
         token,
+        refreshToken,
         user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role },
       },
     });
@@ -75,6 +82,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const token = app.jwt.sign({ id: user.id, email: user.email, role: user.role }, { expiresIn: config.jwt.accessTtl });
+    const refreshToken = await createRefreshToken(user.id);
 
     await createAuditLog({
       userId: user.id,
@@ -90,8 +98,32 @@ export async function authRoutes(app: FastifyInstance) {
       success: true,
       data: {
         token,
+        refreshToken,
         user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role, phone: user.phone, avatar: user.avatar },
       },
+    });
+  });
+
+  // Refresh token
+  app.post('/refresh', async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = refreshSchema.parse(request.body);
+
+    const userId = await verifyRefreshToken(body.refreshToken);
+    if (!userId) {
+      return reply.code(401).send({ success: false, error: { code: 'INVALID_REFRESH_TOKEN', message: 'Invalid or expired refresh token' } });
+    }
+
+    const user = await findUserById(userId);
+    if (!user || user.status !== 'ACTIVE') {
+      return reply.code(401).send({ success: false, error: { code: 'USER_INACTIVE', message: 'User account is not active' } });
+    }
+
+    const token = app.jwt.sign({ id: user.id, email: user.email, role: user.role }, { expiresIn: config.jwt.accessTtl });
+    const refreshToken = await createRefreshToken(user.id);
+
+    return reply.send({
+      success: true,
+      data: { token, refreshToken },
     });
   });
 
@@ -104,6 +136,10 @@ export async function authRoutes(app: FastifyInstance) {
   // Logout
   app.post('/logout', { preHandler: [app.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const user = (request as any).user;
+    
+    // Revoke all tokens for this user
+    await revokeAllUserTokens(user.id);
+
     await createAuditLog({
       userId: user.id,
       userName: `${user.first_name || ''} ${user.last_name || ''}`,
@@ -113,6 +149,7 @@ export async function authRoutes(app: FastifyInstance) {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
+
     return reply.send({ success: true, data: { message: 'Logged out' } });
   });
 }

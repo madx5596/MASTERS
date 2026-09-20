@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDataStore, useAuthStore } from '../../store';
 import { Card, Button, Badge, Avatar, Modal, StatCard } from '../../components/ui';
 import { formatCurrency, formatTime, formatDate } from '../../utils/format';
@@ -222,32 +222,35 @@ export function ClientBookings() {
 // ============ CLIENT MASTERS ============
 export function ClientMasters() {
   const { providers } = useDataStore();
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Мастера</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {providers.map(provider => (
-          <Card key={provider.id} className="p-6">
-            <div className="text-center">
-              <Avatar name={provider.displayName} size="lg" className="mx-auto" />
-              <div className="mt-3">
-                <div className="flex items-center justify-center gap-2">
-                  <h3 className="font-semibold text-gray-900">{provider.displayName}</h3>
-                  {provider.isPremium && <span className="text-yellow-500">⭐</span>}
+          <Link key={provider.id} to={`/client/masters/${provider.id}`}>
+            <Card className="p-6 hover:shadow-md transition-shadow">
+              <div className="text-center">
+                <Avatar name={provider.displayName} size="lg" className="mx-auto" />
+                <div className="mt-3">
+                  <div className="flex items-center justify-center gap-2">
+                    <h3 className="font-semibold text-gray-900">{provider.displayName}</h3>
+                    {provider.isPremium && <span className="text-yellow-500">⭐</span>}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">{provider.specializations.join(', ')}</p>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">{provider.specializations.join(', ')}</p>
-              </div>
-              <div className="flex items-center justify-center gap-4 mt-3">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-900">★ {provider.rating}</p>
-                  <p className="text-xs text-gray-400">{provider.reviewCount} отзывов</p>
+                <div className="flex items-center justify-center gap-4 mt-3">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-900">★ {provider.rating}</p>
+                    <p className="text-xs text-gray-400">{provider.reviewCount} отзывов</p>
+                  </div>
                 </div>
+                <p className="text-sm text-gray-500 mt-3 line-clamp-2">{provider.description}</p>
+                <Button className="w-full mt-4" size="sm" onClick={(e) => { e.preventDefault(); navigate(`/client/booking/${provider.id}`); }}>Записаться</Button>
               </div>
-              <p className="text-sm text-gray-500 mt-3 line-clamp-2">{provider.description}</p>
-              <Button className="w-full mt-4" size="sm">Записаться</Button>
-            </div>
-          </Card>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

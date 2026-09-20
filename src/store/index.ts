@@ -49,9 +49,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email: string, password: string) => {
     if (API_AVAILABLE) {
       try {
-        const response = await api.post<{ token: string; user: any }>('/api/auth/login', { email, password });
+        const response = await api.post<{ token: string; refreshToken: string; user: any }>('/api/auth/login', { email, password });
         if (response.success && response.data) {
-          api.setToken(response.data.token);
+          api.setTokens(response.data.token, response.data.refreshToken);
           const user = {
             id: response.data.user.id,
             email: response.data.user.email,
@@ -94,7 +94,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (API_AVAILABLE) {
       try { await api.post('/api/auth/logout'); } catch {}
     }
-    api.setToken(null);
+    api.clearTokens();
     set({ currentUser: null, isAuthenticated: false });
   },
 
@@ -128,7 +128,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
       } catch {
         // Token invalid, clear it
-        api.setToken(null);
+        api.clearTokens();
       }
     }
     
