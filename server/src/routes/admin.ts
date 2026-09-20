@@ -1,5 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query, queryOne } from '../db/pool.js';
+import { getPaymentSettings, updatePaymentSettings, maskPaymentSettings, validateSettingsUpdate } from '../services/payment-settings.js';
+import { createAuditLog } from '../services/audit.js';
 
 export async function adminRoutes(app: FastifyInstance) {
   // Dashboard stats
@@ -35,10 +37,12 @@ export async function adminRoutes(app: FastifyInstance) {
       const settings = await query('SELECT key, value FROM system_settings');
       const settingsMap: Record<string, any> = {};
       settings.forEach(s => { settingsMap[s.key] = s.value; });
-      // Mask sensitive data
-      if (settingsMap.payment?.yooKassaSecretKey) {
-        settingsMap.payment.yooKassaSecretKey = '••••••••••••';
+
+      // Mask payment settings
+      if (settingsMap.payment) {
+        settingsMap.payment = maskPaymentSettings(settingsMap.payment);
       }
+
       return reply.send({ success: true, data: settingsMap });
     }
   );
@@ -49,6 +53,27 @@ export async function adminRoutes(app: FastifyInstance) {
       const body = request.body as Record<string, any>;
       const user = (request as any).user;
 
+      // Handle payment settings specially
+      if (body.payment) {
+        const current = await getPaymentSettings();
+        const validated = validateSettingsUpdate(current, body.payment);
+        await updatePaymentSettings(validated, user.id);
+
+        await createAuditLog({
+          userId: user.id,
+          userName: `${user.first_name || ''} ${user.last_name || ''}`,
+          action: 'PAYMENT_SETTINGS_UPDATED',
+          entity: 'SystemSettings',
+          entityId: 'payment',
+          newValue: { ...validated, yooKassaSecretKey: '••••••••' },
+          ip: request.ip,
+          userAgent: request.headers['user-agent'],
+        });
+
+        delete body.payment;
+      }
+
+      // Handle other settings
       for (const [key, value] of Object.entries(body)) {
         await query(
           `INSERT INTO system_settings (key, value, updated_by) VALUES ($1, $2, $3)

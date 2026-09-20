@@ -1,8 +1,9 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getAllWallets, getWalletByOwner, getWalletById, getTransactions, getAllTransactions, createWallet } from '../services/wallets.js';
+import { getAllWallets, getWalletByOwner, getWalletById, getTransactions, getAllTransactions } from '../services/wallets.js';
 import { transaction } from '../db/pool.js';
 import { createAuditLog } from '../services/audit.js';
 import { queryOne } from '../db/pool.js';
+import { getProviderByUserId } from '../services/appointments.js';
 
 export async function walletsRoutes(app: FastifyInstance) {
   // Get all wallets (admin)
@@ -17,28 +18,62 @@ export async function walletsRoutes(app: FastifyInstance) {
   app.get('/me', { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const user = (request as any).user;
-      const provider = await queryOne('SELECT id FROM providers WHERE user_id = $1', [user.id]);
-      if (!provider) return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Provider profile not found' } });
+      const provider = await getProviderByUserId(user.id);
+      if (!provider) {
+        return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Provider profile not found' } });
+      }
       const wallet = await getWalletByOwner(provider.id);
-      if (!wallet) return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Wallet not found' } });
+      if (!wallet) {
+        return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Wallet not found' } });
+      }
       return reply.send({ success: true, data: wallet });
     }
   );
 
-  // Get wallet by ID
+  // Get wallet by ID - with authorization check
   app.get('/:id', { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
+      const user = (request as any).user;
       const wallet = await getWalletById(id);
-      if (!wallet) return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Wallet not found' } });
+
+      if (!wallet) {
+        return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Wallet not found' } });
+      }
+
+      // Authorization check
+      const isAdmin = ['SUPER_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
+      if (!isAdmin) {
+        const provider = await getProviderByUserId(user.id);
+        if (!provider || wallet.owner_id !== provider.id) {
+          return reply.code(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
+        }
+      }
+
       return reply.send({ success: true, data: wallet });
     }
   );
 
-  // Get wallet transactions
+  // Get wallet transactions - with authorization check
   app.get('/:id/transactions', { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
+      const user = (request as any).user;
+      const wallet = await getWalletById(id);
+
+      if (!wallet) {
+        return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Wallet not found' } });
+      }
+
+      // Authorization check
+      const isAdmin = ['SUPER_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
+      if (!isAdmin) {
+        const provider = await getProviderByUserId(user.id);
+        if (!provider || wallet.owner_id !== provider.id) {
+          return reply.code(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
+        }
+      }
+
       const txs = await getTransactions(id);
       return reply.send({ success: true, data: txs });
     }
@@ -56,7 +91,9 @@ export async function walletsRoutes(app: FastifyInstance) {
       }
 
       const wallet = await getWalletById(id);
-      if (!wallet) return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Wallet not found' } });
+      if (!wallet) {
+        return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Wallet not found' } });
+      }
 
       const { creditWallet, debitWallet } = await import('../services/wallets.js');
 

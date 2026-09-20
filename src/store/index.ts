@@ -11,7 +11,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   switchRole: (role: User['role']) => void;
   checkAuth: () => Promise<void>;
 }
@@ -41,7 +41,7 @@ interface DataState {
   addAuditLog: (log: AuditLog) => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   currentUser: null,
   isAuthenticated: false,
   isLoading: true,
@@ -69,7 +69,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         return false;
       } catch {
-        // Fallback to mock
+        // Fallback to mock in demo mode
+        if (!API_AVAILABLE) {
+          const user = mockData.users.find(u => u.email === email);
+          if (user) {
+            set({ currentUser: user, isAuthenticated: true, isLoading: false });
+            return true;
+          }
+        }
+        return false;
       }
     }
 
@@ -118,24 +126,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ currentUser: user, isAuthenticated: true, isLoading: false });
           return;
         }
-      } catch {}
-    }
-    
-    // Check localStorage for mock auth
-    const savedUser = localStorage.getItem('demo_user');
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        set({ currentUser: user, isAuthenticated: true, isLoading: false });
-        return;
-      } catch {}
+      } catch {
+        // Token invalid, clear it
+        api.setToken(null);
+      }
     }
     
     set({ isLoading: false });
   },
 }));
 
-export const useDataStore = create<DataState>((set, get) => ({
+export const useDataStore = create<DataState>((set) => ({
   providers: mockData.providers,
   services: mockData.services,
   appointments: mockData.appointments,

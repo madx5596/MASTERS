@@ -411,13 +411,49 @@ npm run build
 - [ ] Установить `NODE_ENV=production`
 - [ ] Сменить `JWT_SECRET` на случайную строку
 - [ ] Настроить `DATABASE_URL` для production PostgreSQL
-- [ ] Включить `YOOKASSA_ENABLED=true` с реальными ключами
-- [ ] Установить `PAYMENT_MODE=production`
+- [ ] Настроить ЮKassa через Admin UI (не через ENV)
 - [ ] Настроить HTTPS
 - [ ] Настроить CORS для production домена
 - [ ] Настроить rate limiting
 - [ ] Настроить webhook URL для ЮKassa
 - [ ] Выполнить backup strategy
+
+---
+
+## Этап 2 — Стабилизация ядра ✅
+
+Проведена полная стабилизация ядра системы:
+
+### Что исправлено:
+
+1. **Payment Provider Abstraction**
+   - Создан интерфейс `PaymentProvider`
+   - Реализованы `MockPaymentProvider` и `YooKassaProvider`
+   - Бизнес-логика не зависит от конкретного провайдера
+
+2. **Payment Settings Service**
+   - Настройки ЮKassa хранятся в PostgreSQL
+   - Админ может изменять настройки через UI
+   - Secret Key маскируется в API ответах
+   - Защита от перезаписи маскированного ключа
+
+3. **Authorization & Security**
+   - Правильные связи User → Provider → Customer через `user_id`
+   - Backend вычисляет критические данные (price, duration, endAt)
+   - Authorization checks на всех endpoints
+   - Пользователь видит только свои данные
+
+4. **Database Improvements**
+   - Добавлены CHECK constraints
+   - Система версионирования миграций
+   - Улучшены индексы и foreign keys
+
+5. **Seed Data**
+   - Правильные связи между сущностями
+   - Все foreign keys корректны
+   - Пароли захешированы
+
+Подробный отчёт: [STABILIZATION_REPORT.md](./STABILIZATION_REPORT.md)
 
 ---
 

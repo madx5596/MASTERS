@@ -1,7 +1,10 @@
 import { query, queryOne, transaction } from '../db/pool.js';
-import { config } from '../config/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { creditWallet, getWalletByOwner } from './wallets.js';
+import { getPaymentSettings, getYooKassaConfig } from './payment-settings.js';
+import type { PaymentProvider } from './payment-provider.js';
+import { MockPaymentProvider } from './mock-payment-provider.js';
+import { YooKassaProvider } from './yookassa-provider.js';
 import pg from 'pg';
 
 export interface Payment {
@@ -35,6 +38,20 @@ export interface PaymentEvent {
 }
 
 /**
+ * Get appropriate payment provider based on settings
+ */
+async function getPaymentProvider(): Promise<PaymentProvider> {
+  const yooKassaConfig = await getYooKassaConfig();
+
+  if (yooKassaConfig) {
+    return new YooKassaProvider(yooKassaConfig);
+  }
+
+  // Fallback to mock provider
+  return new MockPaymentProvider();
+}
+
+/**
  * Create payment — initiates payment process
  */
 export async function createPayment(data: {
@@ -45,84 +62,52 @@ export async function createPayment(data: {
   description?: string;
 }): Promise<{ payment: Payment; confirmationUrl: string }> {
   const idempotencyKey = uuidv4();
+  const settings = await getPaymentSettings();
+
+  // Validate amount
+  if (data.amount < settings.minTopUp) {
+    throw new Error(`Minimum amount is ${settings.minTopUp / 100} RUB`);
+  }
+  if (data.amount > settings.maxTopUp) {
+    throw new Error(`Maximum amount is ${settings.maxTopUp / 100} RUB`);
+  }
 
   // Create payment record
   const payment = await queryOne<Payment>(
     `INSERT INTO payments (user_id, organization_id, purpose, amount, currency, provider, status, idempotency_key, expires_at)
      VALUES ($1, $2, $3, $4, 'RUB', $5, 'CREATED', $6, NOW() + INTERVAL '30 minutes')
      RETURNING *`,
-    [data.userId, data.organizationId || null, data.purpose, data.amount, 'YooKassa', idempotencyKey]
+    [data.userId, data.organizationId || null, data.purpose, data.amount, settings.provider, idempotencyKey]
   );
 
   if (!payment) throw new Error('Failed to create payment');
 
-  // Create payment in YooKassa or mock
-  let confirmationUrl: string;
-  let providerPaymentId: string;
+  // Get payment provider
+  const provider = await getPaymentProvider();
 
-  if (config.paymentMode === 'production' && config.yooKassa.enabled) {
-    // Real YooKassa integration
-    const result = await createYooKassaPayment(payment, data.description || 'Пополнение кошелька');
-    confirmationUrl = result.confirmationUrl;
-    providerPaymentId = result.paymentId;
-  } else {
-    // Mock payment for development
-    providerPaymentId = `mock_${payment.id}`;
-    confirmationUrl = `${config.app.url}/payment/mock/${payment.id}`;
-  }
+  // Create payment via provider
+  const result = await provider.createPayment({
+    amount: payment.amount,
+    currency: payment.currency,
+    description: data.description || 'Пополнение кошелька',
+    metadata: {
+      payment_id: payment.id,
+      user_id: payment.user_id,
+      purpose: payment.purpose,
+    },
+    idempotencyKey,
+  });
 
   // Update payment with provider data
   await query(
     `UPDATE payments SET provider_payment_id = $1, payment_url = $2, status = 'PENDING' WHERE id = $3`,
-    [providerPaymentId, confirmationUrl, payment.id]
+    [result.providerPaymentId, result.confirmationUrl, payment.id]
   );
 
   const updatedPayment = await queryOne<Payment>('SELECT * FROM payments WHERE id = $1', [payment.id]);
   if (!updatedPayment) throw new Error('Failed to update payment');
 
-  return { payment: updatedPayment, confirmationUrl };
-}
-
-/**
- * Create real YooKassa payment
- */
-async function createYooKassaPayment(payment: Payment, description: string): Promise<{ confirmationUrl: string; paymentId: string }> {
-  const response = await fetch('https://api.yookassa.ru/v3/payments', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Idempotence-Key': payment.idempotency_key || uuidv4(),
-      'Authorization': `Basic ${Buffer.from(`${config.yooKassa.shopId}:${config.yooKassa.secretKey}`).toString('base64')}`,
-    },
-    body: JSON.stringify({
-      amount: {
-        value: (payment.amount / 100).toFixed(2),
-        currency: 'RUB',
-      },
-      confirmation: {
-        type: 'redirect',
-        return_url: config.yooKassa.returnUrl,
-      },
-      capture: true,
-      description,
-      metadata: {
-        payment_id: payment.id,
-        user_id: payment.user_id,
-        purpose: payment.purpose,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`YooKassa error: ${error}`);
-  }
-
-  const data = await response.json();
-  return {
-    confirmationUrl: data.confirmation.confirmation_url,
-    paymentId: data.id,
-  };
+  return { payment: updatedPayment, confirmationUrl: result.confirmationUrl };
 }
 
 /**

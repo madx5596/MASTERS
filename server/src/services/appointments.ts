@@ -16,6 +16,20 @@ export interface Appointment {
 }
 
 /**
+ * Get provider by user_id
+ */
+export async function getProviderByUserId(userId: string): Promise<any | null> {
+  return queryOne('SELECT * FROM providers WHERE user_id = $1', [userId]);
+}
+
+/**
+ * Get customer by user_id
+ */
+export async function getCustomerByUserId(userId: string): Promise<any | null> {
+  return queryOne('SELECT * FROM customers WHERE user_id = $1', [userId]);
+}
+
+/**
  * Get available time slots for a provider on a given date
  */
 export async function getAvailability(providerId: string, date: string, serviceDuration: number): Promise<string[]> {
@@ -89,24 +103,69 @@ export async function getAvailability(providerId: string, date: string, serviceD
 }
 
 /**
- * Create appointment with double-booking protection
+ * Create appointment with validation and double-booking protection
+ * Backend computes price, duration, endAt from service
  */
 export async function createAppointment(data: {
-  organizationId: string;
-  customerId: string;
+  userId: string;
   providerId: string;
   serviceId: string;
   startAt: string;
-  endAt: string;
-  price: number;
   notes?: string;
 }): Promise<Appointment> {
+  // Validate service exists and is active
+  const service = await queryOne<any>(
+    'SELECT * FROM services WHERE id = $1 AND status = $2',
+    [data.serviceId, 'ACTIVE']
+  );
+
+  if (!service) {
+    const error = new Error('Service not found or inactive') as any;
+    error.code = 'SERVICE_NOT_FOUND';
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Validate service belongs to provider
+  if (service.provider_id !== data.providerId) {
+    const error = new Error('Service does not belong to this provider') as any;
+    error.code = 'SERVICE_PROVIDER_MISMATCH';
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate provider exists and is active
+  const provider = await queryOne<any>(
+    'SELECT * FROM providers WHERE id = $1 AND status = $2',
+    [data.providerId, 'ACTIVE']
+  );
+
+  if (!provider) {
+    const error = new Error('Provider not found or inactive') as any;
+    error.code = 'PROVIDER_NOT_FOUND';
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Get customer for this user
+  const customer = await getCustomerByUserId(data.userId);
+  if (!customer) {
+    const error = new Error('Customer profile not found') as any;
+    error.code = 'CUSTOMER_NOT_FOUND';
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Compute endAt from startAt + duration
+  const startDate = new Date(data.startAt);
+  const endDate = new Date(startDate.getTime() + service.duration * 60000);
+
   try {
     const result = await queryOne<Appointment>(
       `INSERT INTO appointments (organization_id, customer_id, provider_id, service_id, start_at, end_at, status, price, notes)
        VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8)
        RETURNING *`,
-      [data.organizationId, data.customerId, data.providerId, data.serviceId, data.startAt, data.endAt, data.price, data.notes || null]
+      [service.organization_id, customer.id, data.providerId, data.serviceId, data.startAt, endDate.toISOString(), service.price, data.notes || null]
     );
 
     if (!result) throw new Error('Failed to create appointment');

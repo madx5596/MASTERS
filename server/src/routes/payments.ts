@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createPayment, getPaymentById, getUserPayments, getAllPayments, processWebhookEvent } from '../services/payments.js';
+import { getPaymentSettings } from '../services/payment-settings.js';
 import { createAuditLog } from '../services/audit.js';
 import { createNotification } from '../services/notifications.js';
 
@@ -10,11 +11,19 @@ export async function paymentsRoutes(app: FastifyInstance) {
       const body = request.body as { amount: number; purpose: string };
       const user = (request as any).user;
 
-      if (!body.amount || body.amount < 50000) { // min 500 RUB in kopecks
-        return reply.code(400).send({ success: false, error: { code: 'INVALID_AMOUNT', message: 'Minimum amount is 500 RUB' } });
+      const settings = await getPaymentSettings();
+
+      if (!body.amount || body.amount < settings.minTopUp) {
+        return reply.code(400).send({
+          success: false,
+          error: { code: 'INVALID_AMOUNT', message: `Minimum amount is ${settings.minTopUp / 100} RUB` }
+        });
       }
-      if (body.amount > 50000000) { // max 500000 RUB
-        return reply.code(400).send({ success: false, error: { code: 'INVALID_AMOUNT', message: 'Maximum amount exceeded' } });
+      if (body.amount > settings.maxTopUp) {
+        return reply.code(400).send({
+          success: false,
+          error: { code: 'INVALID_AMOUNT', message: `Maximum amount is ${settings.maxTopUp / 100} RUB` }
+        });
       }
 
       const { payment, confirmationUrl } = await createPayment({
@@ -45,12 +54,23 @@ export async function paymentsRoutes(app: FastifyInstance) {
     }
   );
 
-  // Get payment by ID
+  // Get payment by ID - with authorization check
   app.get('/:id', { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
+      const user = (request as any).user;
       const payment = await getPaymentById(id);
-      if (!payment) return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Payment not found' } });
+
+      if (!payment) {
+        return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Payment not found' } });
+      }
+
+      // Authorization check
+      const isAdmin = ['SUPER_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
+      if (!isAdmin && payment.user_id !== user.id) {
+        return reply.code(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
+      }
+
       return reply.send({ success: true, data: payment });
     }
   );
@@ -114,7 +134,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
     }
   });
 
-  // Mock payment confirmation (for development)
+  // Mock payment confirmation (for development only)
   app.post('/mock/confirm/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     if (process.env.NODE_ENV === 'production') {
       return reply.code(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Not found' } });

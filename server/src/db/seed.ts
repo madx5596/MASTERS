@@ -9,7 +9,7 @@ async function seed() {
   try {
     await client.query('BEGIN');
 
-    // Create users
+    // Create users with hashed passwords
     const passwordHash = await bcrypt.hash('password123', 12);
 
     const users = [
@@ -27,16 +27,11 @@ async function seed() {
       const result = await client.query(
         `INSERT INTO users (email, phone, first_name, last_name, password_hash, role, status)
          VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
-         ON CONFLICT (email) DO NOTHING
+         ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role
          RETURNING id`,
         [user.email, user.phone, user.firstName, user.lastName, passwordHash, user.role]
       );
-      if (result.rows[0]) {
-        userIds[user.email] = result.rows[0].id;
-      } else {
-        const existing = await client.query('SELECT id FROM users WHERE email = $1', [user.email]);
-        userIds[user.email] = existing.rows[0].id;
-      }
+      userIds[user.email] = result.rows[0].id;
     }
 
     console.log('✅ Users created');
@@ -45,15 +40,15 @@ async function seed() {
     const orgResult = await client.query(
       `INSERT INTO organizations (name, slug, business_type, owner_id, status)
        VALUES ('Beauty Studio KRK', 'beauty-studio-krk', 'BEAUTY', $1, 'ACTIVE')
-       ON CONFLICT (slug) DO NOTHING
+       ON CONFLICT (slug) DO UPDATE SET owner_id = EXCLUDED.owner_id
        RETURNING id`,
       [userIds['admin@beautykrk.ru']]
     );
-    const orgId = orgResult.rows[0]?.id || (await client.query("SELECT id FROM organizations WHERE slug = 'beauty-studio-krk'")).rows[0].id;
+    const orgId = orgResult.rows[0].id;
 
     console.log('✅ Organization created');
 
-    // Create providers
+    // Create providers (linked to users via user_id)
     const providers = [
       { userId: userIds['anna@beautykrk.ru'], firstName: 'Анна', lastName: 'Иванова', displayName: 'Анна Иванова', description: 'Мастер маникюра с опытом 5 лет', specializations: ['Маникюр', 'Педикюр', 'Дизайн ногтей'] },
       { userId: userIds['maria@beautykrk.ru'], firstName: 'Мария', lastName: 'Петрова', displayName: 'Мария Петрова', description: 'Парикмахер-стилист', specializations: ['Стрижки', 'Окрашивание', 'Укладки'] },
@@ -72,7 +67,7 @@ async function seed() {
 
     console.log('✅ Providers created');
 
-    // Create customers
+    // Create customers (linked to users via user_id)
     const customers = [
       { userId: userIds['client@mail.ru'], firstName: 'Елена', lastName: 'Смирнова', phone: '+79005555555', email: 'client@mail.ru' },
       { userId: userIds['olga@mail.ru'], firstName: 'Ольга', lastName: 'Козлова', phone: '+79006666666', email: 'olga@mail.ru' },
@@ -129,33 +124,38 @@ async function seed() {
 
     console.log('✅ Services created');
 
-    // Create schedules
+    // Create schedules for providers
     for (const providerId of providerIds) {
       for (let day = 1; day <= 5; day++) {
         await client.query(
           `INSERT INTO schedules (provider_id, day_of_week, start_time, end_time, is_active)
-           VALUES ($1, $2, '09:00', '18:00', TRUE)`,
+           VALUES ($1, $2, '09:00', '18:00', TRUE)
+           ON CONFLICT (provider_id, day_of_week) DO NOTHING`,
           [providerId, day]
         );
       }
       await client.query(
         `INSERT INTO schedules (provider_id, day_of_week, start_time, end_time, is_active)
-         VALUES ($1, 6, '10:00', '16:00', TRUE)`,
+         VALUES ($1, 6, '10:00', '16:00', TRUE)
+         ON CONFLICT (provider_id, day_of_week) DO NOTHING`,
         [providerId]
       );
       await client.query(
         `INSERT INTO schedules (provider_id, day_of_week, start_time, end_time, is_active)
-         VALUES ($1, 0, '00:00', '00:00', FALSE)`,
+         VALUES ($1, 0, '00:00', '00:00', FALSE)
+         ON CONFLICT (provider_id, day_of_week) DO NOTHING`,
         [providerId]
       );
     }
 
     console.log('✅ Schedules created');
 
-    // Create wallets
+    // Create wallets for providers
     for (let i = 0; i < providerIds.length; i++) {
       await client.query(
-        `INSERT INTO wallets (owner_id, organization_id, balance, currency) VALUES ($1, $2, $3, 'RUB')`,
+        `INSERT INTO wallets (owner_id, organization_id, balance, currency)
+         VALUES ($1, $2, $3, 'RUB')
+         ON CONFLICT (owner_id) DO NOTHING`,
         [providerIds[i], orgId, i === 0 ? 1500000 : 350000]
       );
     }
@@ -184,14 +184,15 @@ async function seed() {
       `INSERT INTO system_settings (key, value) VALUES ('payment', $1)
        ON CONFLICT (key) DO UPDATE SET value = $1`,
       [JSON.stringify({
-        enabled: true,
-        provider: 'YooKassa',
-        yooKassaShopId: 'shop-demo',
-        yooKassaSecretKey: '••••••••••••',
+        enabled: false,
+        provider: 'mock',
+        yooKassaShopId: '',
+        yooKassaSecretKey: '',
         returnUrl: 'http://localhost:3000/payment/return',
         minTopUp: 50000,
         maxTopUp: 50000000,
-        webhookStatus: 'ACTIVE',
+        webhookStatus: 'inactive',
+        lastWebhookAt: null,
       })]
     );
 
@@ -201,8 +202,11 @@ async function seed() {
     console.log('🎉 Seed completed successfully!');
     console.log('\n📋 Demo accounts:');
     console.log('  Admin: admin@beautykrk.ru / password123');
+    console.log('  Finance: finance@beautykrk.ru / password123');
     console.log('  Provider: anna@beautykrk.ru / password123');
+    console.log('  Provider: maria@beautykrk.ru / password123');
     console.log('  Customer: client@mail.ru / password123');
+    console.log('  Customer: olga@mail.ru / password123');
 
   } catch (error) {
     await client.query('ROLLBACK');
