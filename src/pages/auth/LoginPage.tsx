@@ -7,37 +7,49 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = login(email, password);
-    if (success) {
-      const user = useAuthStore.getState().currentUser;
-      if (user?.role === 'SUPER_ADMIN' || user?.role === 'FINANCE_ADMIN' || user?.role === 'SUPPORT_ADMIN' || user?.role === 'CONTENT_ADMIN' || user?.role === 'ANALYST') {
-        navigate('/admin');
-      } else if (user?.role === 'PROVIDER') {
-        navigate('/provider/today');
+    setLoading(true);
+    try {
+      const success = await login(email, password);
+      if (success) {
+        const user = useAuthStore.getState().currentUser;
+        if (user?.role === 'SUPER_ADMIN' || user?.role === 'FINANCE_ADMIN' || user?.role === 'SUPPORT_ADMIN' || user?.role === 'CONTENT_ADMIN' || user?.role === 'ANALYST') {
+          navigate('/admin');
+        } else if (user?.role === 'PROVIDER') {
+          navigate('/provider/today');
+        } else {
+          navigate('/client');
+        }
       } else {
-        navigate('/client');
+        setError('Неверный email или пароль');
       }
-    } else {
-      setError('Неверный email или пароль');
+    } catch {
+      setError('Ошибка подключения. Попробуйте позже.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const quickLogin = (role: string) => {
+  const quickLogin = async (role: string) => {
     const emails: Record<string, string> = {
       admin: 'admin@beautykrk.ru',
       provider: 'anna@beautykrk.ru',
       customer: 'client@mail.ru',
     };
-    login(emails[role], 'password');
-    if (role === 'admin') navigate('/admin');
-    else if (role === 'provider') navigate('/provider/today');
-    else navigate('/client');
+    setLoading(true);
+    const success = await login(emails[role], 'password123');
+    if (success) {
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'provider') navigate('/provider/today');
+      else navigate('/client');
+    }
+    setLoading(false);
   };
 
   return (
@@ -56,19 +68,21 @@ export function LoginPage() {
             <Input label="Email" type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
             <Input label="Пароль" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" className="w-full" size="lg">Войти</Button>
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? 'Вход...' : 'Войти'}
+            </Button>
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
             <p className="text-sm text-gray-500 text-center mb-3">Быстрый вход для демо:</p>
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => quickLogin('admin')} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors">
+              <button onClick={() => quickLogin('admin')} disabled={loading} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors disabled:opacity-50">
                 👑 Админ
               </button>
-              <button onClick={() => quickLogin('provider')} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors">
+              <button onClick={() => quickLogin('provider')} disabled={loading} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors disabled:opacity-50">
                 💅 Мастер
               </button>
-              <button onClick={() => quickLogin('customer')} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors">
+              <button onClick={() => quickLogin('customer')} disabled={loading} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors disabled:opacity-50">
                 👤 Клиент
               </button>
             </div>

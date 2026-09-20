@@ -2,6 +2,21 @@
 
 Универсальная CRM / Marketplace для сферы услуг (Beauty, Auto, Barbershop, Repair, Cleaning, Education).
 
+## 📋 Содержание
+
+- [Архитектура](#архитектура)
+- [Технологии](#технологии)
+- [Структура проекта](#структура-проекта)
+- [Установка и запуск](#установка-и-запуск)
+- [База данных](#база-данных)
+- [Аутентификация](#аутентификация)
+- [Платежи и ЮKassa](#платежи-и-yookassa)
+- [API](#api)
+- [Роли и права](#роли-и-права)
+- [Development](#development)
+
+---
+
 ## Архитектура
 
 ```
@@ -15,7 +30,7 @@
         |              |              |
         +--------------+--------------+
                        |
-                    API/BACKEND
+                    API (REST)
                        |
       +----------------+----------------+
       |                |                |
@@ -47,185 +62,365 @@
 - Vite
 - Tailwind CSS v4
 - React Router v6
-- Zustand (state management)
-- Lucide React (icons)
+- Zustand (client state)
+- API Client (fetch-based)
 
-### Backend (планируется)
+### Backend
 - Node.js + TypeScript
-- NestJS / Fastify
+- Fastify
 - PostgreSQL
 - JWT Authentication
-- ЮKassa Payment Provider
+- Zod (validation)
+- bcryptjs (password hashing)
+
+### Payments
+- ЮKassa (production)
+- Mock Provider (development)
+
+---
 
 ## Структура проекта
 
 ```
-src/
-├── App.tsx              # Главный компонент с роутингом
-├── main.tsx             # Точка входа
-├── index.css            # Глобальные стили
-├── types/
-│   └── index.ts         # Типы всех сущностей
-├── data/
-│   └── mockData.ts      # Мок-данные для разработки
-├── store/
-│   └── index.ts         # Zustand store
-├── utils/
-│   └── format.ts        # Утилиты форматирования
-├── components/
-│   ├── ui/
-│   │   └── index.tsx    # Переиспользуемые UI компоненты
-│   └── layouts/
-│       └── index.tsx    # Layouts для Client/Provider/Admin
-└── pages/
-    ├── auth/
-    │   └── LoginPage.tsx
-    ├── client/
-    │   └── index.tsx    # Страницы клиента
-    ├── provider/
-    │   └── index.tsx    # Страницы мастера
-    └── admin/
-        └── index.tsx    # Страницы администратора
+MASTERS-KRK/
+│
+├── src/                     # Frontend (React)
+│   ├── api/                 # API клиент
+│   │   ├── client.ts        # Базовый HTTP клиент
+│   │   └── index.ts         # API модули
+│   ├── components/
+│   │   ├── ui/              # Переиспользуемые компоненты
+│   │   └── layouts/         # Layouts (Client/Provider/Admin)
+│   ├── data/
+│   │   └── mockData.ts      # Мок-данные (fallback)
+│   ├── pages/
+│   │   ├── auth/            # Страницы авторизации
+│   │   ├── client/          # Клиентский кабинет
+│   │   ├── provider/        # Кабинет мастера
+│   │   └── admin/           # Админ-панель
+│   ├── store/               # Zustand store
+│   ├── types/               # TypeScript типы
+│   └── utils/               # Утилиты
+│
+├── server/                  # Backend (Fastify)
+│   ├── src/
+│   │   ├── config/          # Конфигурация
+│   │   ├── db/              # Database (pool, migrate, seed)
+│   │   ├── middleware/      # Auth middleware
+│   │   ├── routes/          # API маршруты
+│   │   ├── services/        # Бизнес-логика
+│   │   └── index.ts         # Точка входа
+│   └── package.json
+│
+├── database/
+│   └── schema.sql           # Полная схема БД
+│
+├── .env.example             # Пример конфигурации
+└── README.md
 ```
 
-## Основные сущности
+---
 
-### Core
-- `User` — пользователь системы
-- `Organization` — организация/бизнес
-- `Provider` — мастер/поставщик услуг
-- `Customer` — клиент
-- `Service` — услуга
-- `Appointment` — запись/бронирование
-- `Schedule` — расписание
+## Установка и запуск
 
-### Finance
-- `Wallet` — внутренний кошелек
-- `Transaction` — транзакция
-- `Payment` — внешний платеж
-
-### Business
-- `Promotion` — продвижение
-- `Advertisement` — реклама
-- `PremiumSubscription` — Premium подписка
-- `Notification` — уведомление
-- `Review` — отзыв
-- `AuditLog` — журнал аудита
-
-## Роли
-
-| Роль | Описание |
-|------|----------|
-| SUPER_ADMIN | Полный доступ |
-| FINANCE_ADMIN | Платежи, кошельки, транзакции |
-| SUPPORT_ADMIN | Пользователи, клиенты, записи |
-| CONTENT_ADMIN | Услуги, продвижение, реклама |
-| ANALYST | Аналитика (только чтение) |
-| PROVIDER | Мастер |
-| CUSTOMER | Клиент |
-
-## Маршруты
-
-### Клиент
-- `/client/` — Главная
-- `/client/search` — Поиск
-- `/client/bookings` — Записи
-- `/client/masters` — Мастера
-- `/client/promotions` — Акции
-- `/client/profile` — Профиль
-
-### Мастер (Provider)
-- `/provider/today` — Сегодня
-- `/provider/calendar` — Календарь
-- `/provider/bookings` — Записи
-- `/provider/messages` — Сообщения
-- `/provider/clients` — Клиенты
-- `/provider/services` — Услуги
-- `/provider/schedule` — Расписание
-- `/provider/analytics` — Аналитика
-- `/provider/profile` — Профиль (с финансами, продвижением, рекламой, Premium)
-
-### Администратор
-- `/admin/` — Dashboard
-- `/admin/users` — Пользователи
-- `/admin/providers` — Мастера
-- `/admin/customers` — Клиенты
-- `/admin/services` — Услуги
-- `/admin/appointments` — Записи
-- `/admin/payments` — Платежи
-- `/admin/wallets` — Кошельки
-- `/admin/transactions` — Транзакции
-- `/admin/promotions` — Продвижение
-- `/admin/advertisements` — Реклама
-- `/admin/premium` — Premium
-- `/admin/notifications` — Уведомления
-- `/admin/audit` — Audit Log
-- `/admin/settings` — Настройки
-
-## Финансовая архитектура
-
-### Принцип
-- `Payment` — внешний платеж (ЮKassa)
-- `Wallet` — внутренний баланс
-- `Transaction` — история изменения баланса
-
-### Flow пополнения
-```
-User → Backend → Create Payment → ЮKassa → User pays
-→ Webhook → Backend verifies → Payment = SUCCEEDED
-→ WalletService.credit() → Transaction → Wallet balance
-→ Notification
-```
-
-### Идмпотентность
-- Webhook может прийти 1 или 10 раз
-- Баланс изменится только один раз
-- Используется `payment_events` для отслеживания
-
-### Безопасность
-- Деньги хранятся в копейках (integer)
-- Все финансовые операции через backend
-- Frontend никогда не считает платеж успешным
-- Transaction нельзя редактировать задним числом
-- Параллельные списания защищены locking
-
-## Демо-доступ
-
-| Роль | Email | Пароль |
-|------|-------|--------|
-| Админ | admin@beautykrk.ru | любой |
-| Мастер | anna@beautykrk.ru | любой |
-| Клиент | client@mail.ru | любой |
-
-## Установка
+### 1. Клонирование и зависимости
 
 ```bash
+# Frontend
 npm install
+
+# Backend
+cd server && npm install
+```
+
+### 2. Конфигурация
+
+```bash
+cp .env.example .env
+# Отредактируйте .env, укажите DATABASE_URL, JWT_SECRET и т.д.
+```
+
+### 3. PostgreSQL
+
+```bash
+# Создайте базу данных
+createdb beautykrk
+
+# Или через psql
+psql -c "CREATE DATABASE beautykrk;"
+```
+
+### 4. Миграции
+
+```bash
+cd server
+npm run migrate
+```
+
+### 5. Seed (тестовые данные)
+
+```bash
+cd server
+npm run seed
+```
+
+### 6. Запуск
+
+```bash
+# Backend (порт 4000)
+cd server && npm run dev
+
+# Frontend (порт 3000)
 npm run dev
 ```
 
-## Build
+---
+
+## База данных
+
+### Основные таблицы
+
+| Таблица | Описание |
+|---------|----------|
+| `users` | Пользователи системы |
+| `organizations` | Организации/бизнесы |
+| `providers` | Мастера/поставщики услуг |
+| `customers` | Клиенты |
+| `services` | Услуги |
+| `service_categories` | Категории услуг |
+| `appointments` | Записи/бронирования |
+| `schedules` | Расписание мастеров |
+| `schedule_exceptions` | Исключения (выходные, отпуск) |
+| `wallets` | Внутренние кошельки |
+| `transactions` | История транзакций |
+| `payments` | Внешние платежи |
+| `payment_events` | Webhook события (идемпотентность) |
+| `promotions` | Продвижение |
+| `advertisements` | Реклама |
+| `premium_subscriptions` | Premium подписки |
+| `notifications` | Уведомления |
+| `reviews` | Отзывы |
+| `audit_logs` | Журнал аудита |
+| `system_settings` | Системные настройки |
+| `refresh_tokens` | Refresh tokens |
+
+### Финансовые гарантии
+
+- Все суммы хранятся в копейках (integer)
+- Транзакции неизменяемы
+- Баланс изменяется только через атомарные операции
+- Row-level locking для защиты от race conditions
+- Exclusion constraint для защиты от double booking
+
+---
+
+## Аутентификация
+
+### Flow
+
+```
+POST /api/auth/register → создание пользователя
+POST /api/auth/login → получение JWT token
+GET /api/auth/me → проверка токена
+POST /api/auth/logout → выход
+```
+
+### Безопасность
+
+- Пароли хранятся только в виде bcrypt hash (12 rounds)
+- JWT access token (15 мин)
+- Refresh tokens в базе данных
+- Middleware `authenticate` проверяет каждый защищенный запрос
+- Middleware `requireRole` проверяет права доступа
+
+---
+
+## Платежи и ЮKassa
+
+### Архитектура
+
+```
+Frontend
+   ↓
+POST /api/payments/create
+   ↓
+Backend создает Payment (CREATED)
+   ↓
+Запрос к ЮKassa
+   ↓
+Получение confirmationUrl
+   ↓
+Frontend перенаправляет пользователя
+   ↓
+ЮKassa → webhook → Backend
+   ↓
+Проверка идемпотентности (payment_events)
+   ↓
+Payment = SUCCEEDED
+   ↓
+WalletService.credit() (в DB transaction)
+   ↓
+Transaction создана
+   ↓
+Notification отправлена
+```
+
+### Идеммотентность
+
+- Каждый webhook обрабатывается только один раз
+- Таблица `payment_events` хранит все полученные события
+- `UNIQUE(provider_event_id)` предотвращает дублирование
+- Баланс изменяется только после подтверждения
+
+### Безопасность
+
+- Secret Key ЮKassa хранится ТОЛЬКО на сервере
+- Frontend никогда не получает секретный ключ
+- Настройки платежей маскируются в API ответах
+- Все финансовые операции записываются в Audit Log
+
+---
+
+## API
+
+### Auth
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+
+### Users
+- `GET /api/users`
+- `GET /api/users/:id`
+- `PATCH /api/users/:id`
+
+### Providers
+- `GET /api/providers`
+- `GET /api/providers/:id`
+- `POST /api/providers`
+- `PATCH /api/providers/:id`
+
+### Services
+- `GET /api/services?providerId=&categoryId=&status=`
+- `GET /api/services/:id`
+- `POST /api/services`
+- `PATCH /api/services/:id`
+- `DELETE /api/services/:id`
+
+### Appointments
+- `GET /api/appointments`
+- `GET /api/appointments/:id`
+- `POST /api/appointments`
+- `POST /api/appointments/:id/confirm`
+- `POST /api/appointments/:id/cancel`
+- `POST /api/appointments/:id/complete`
+
+### Availability
+- `GET /api/availability?providerId=&date=&duration=`
+
+### Wallets
+- `GET /api/wallets`
+- `GET /api/wallets/me`
+- `GET /api/wallets/:id`
+- `GET /api/wallets/:id/transactions`
+- `POST /api/wallets/:id/adjust` (admin)
+
+### Payments
+- `POST /api/payments/create`
+- `GET /api/payments/:id`
+- `GET /api/payments/my`
+- `GET /api/payments/all` (admin)
+- `POST /api/payments/yookassa/webhook`
+- `POST /api/payments/mock/confirm/:id` (development only)
+
+### Promotions
+- `GET /api/promotions`
+- `POST /api/promotions`
+- `PATCH /api/promotions/:id`
+
+### Notifications
+- `GET /api/notifications`
+- `POST /api/notifications/:id/read`
+- `POST /api/notifications/read-all`
+
+### Admin
+- `GET /api/admin/dashboard`
+- `GET /api/admin/settings`
+- `PATCH /api/admin/settings`
+
+### Audit
+- `GET /api/audit`
+
+---
+
+## Роли и права
+
+| Роль | Описание | Доступ |
+|------|----------|--------|
+| SUPER_ADMIN | Полный доступ | Все |
+| FINANCE_ADMIN | Финансы | Payments, Wallets, Transactions |
+| SUPPORT_ADMIN | Поддержка | Users, Customers, Bookings |
+| CONTENT_ADMIN | Контент | Services, Promotions, Ads |
+| ANALYST | Аналитика | Read-only dashboard |
+| PROVIDER | Мастер | Свой профиль, записи, кошелек |
+| CUSTOMER | Клиент | Записи, мастера, услуги |
+
+---
+
+## Development
+
+### Demo аккаунты
+
+| Роль | Email | Пароль |
+|------|-------|--------|
+| Admin | admin@beautykrk.ru | password123 |
+| Provider | anna@beautykrk.ru | password123 |
+| Customer | client@mail.ru | password123 |
+
+### Режимы работы
+
+**Mock mode (по умолчанию):**
+- Frontend работает с локальными данными
+- Не требует backend
+- Подходит для UI разработки
+
+**API mode:**
+- Frontend обращается к backend
+- Требует запущенный сервер и БД
+- Установите `VITE_USE_API=true`
+
+### Проверка
 
 ```bash
+# Frontend
+npm run typecheck
+npm run build
+
+# Backend
+cd server
+npm run typecheck
 npm run build
 ```
 
-## Будущее развитие
+---
 
-### Модули
-- Beauty (активен)
-- Auto
-- Barbershop
-- Repair
-- Cleaning
-- Education
+## Production
 
-### Мобильные приложения
-- Android (Kotlin + Jetpack Compose)
-- iOS (SwiftUI)
+### Checklist
 
-### Платежные провайдеры
-- ЮKassa (основной)
-- T-Bank
-- CloudPayments
-- Robokassa
+- [ ] Установить `NODE_ENV=production`
+- [ ] Сменить `JWT_SECRET` на случайную строку
+- [ ] Настроить `DATABASE_URL` для production PostgreSQL
+- [ ] Включить `YOOKASSA_ENABLED=true` с реальными ключами
+- [ ] Установить `PAYMENT_MODE=production`
+- [ ] Настроить HTTPS
+- [ ] Настроить CORS для production домена
+- [ ] Настроить rate limiting
+- [ ] Настроить webhook URL для ЮKassa
+- [ ] Выполнить backup strategy
+
+---
+
+## Лицензия
+
+Private — MASTERS KRK / BeautyKRK

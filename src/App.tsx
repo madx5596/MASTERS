@@ -17,6 +17,20 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 
 // ============ APP ============
 export default function App() {
+  const { isLoading } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="text-4xl mb-3">💎</div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600 mx-auto"></div>
+          <p className="text-gray-500 mt-3">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <Routes>
