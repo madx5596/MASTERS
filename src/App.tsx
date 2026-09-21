@@ -7,7 +7,7 @@ import { ClientHome, ClientSearch, ClientBookings, ClientMasters, ClientPromotio
 import { BookingFlow } from './pages/client/BookingFlow';
 import { ProviderDetail } from './pages/client/ProviderDetail';
 import { ProviderToday, ProviderCalendar, ProviderBookings, ProviderClients, ProviderServices, ProviderSchedule, ProviderAnalytics, ProviderProfile, ProviderMessages } from './pages/provider';
-import { AdminDashboard, AdminUsers, AdminProviders, AdminCustomers, AdminServices, AdminAppointments, AdminPayments, AdminWallets, AdminTransactions, AdminPromotions, AdminAdvertisements, AdminPremium, AdminNotifications, AdminAudit, AdminSettings } from './pages/admin';
+import { AdminDashboard, AdminUsers, AdminProviders, AdminCustomers, AdminServices, AdminAppointments, AdminPayments, AdminWallets, AdminTransactions, AdminPromotions, AdminAdvertisements, AdminPremium, AdminNotifications, AdminAudit, AdminSettings, AdminCategories } from './pages/admin';
 
 // ============ PROTECTED ROUTES ============
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
@@ -106,6 +106,7 @@ export default function App() {
                 <Route path="/notifications" element={<AdminNotifications />} />
                 <Route path="/audit" element={<AdminAudit />} />
                 <Route path="/settings" element={<AdminSettings />} />
+                <Route path="/categories" element={<AdminCategories />} />
               </Routes>
             </AdminLayout>
           </ProtectedRoute>

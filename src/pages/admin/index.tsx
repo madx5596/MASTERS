@@ -3,6 +3,10 @@ import { useDataStore } from '../../store';
 import { Card, Button, Badge, Avatar, StatCard, Tabs, Table, Modal, EmptyState, Input, Select } from '../../components/ui';
 import { formatCurrency, formatDate, formatDateTime, getStatusColor, getTransactionTypeLabel, getTransactionTypeColor } from '../../utils/format';
 import { users, organizations, paymentSettings, systemHealth, reviews } from '../../data/mockData';
+import { AdminCategories } from './CategoriesPage';
+
+// Re-export AdminCategories
+export { AdminCategories };
 
 // ============ ADMIN DASHBOARD ============
 export function AdminDashboard() {

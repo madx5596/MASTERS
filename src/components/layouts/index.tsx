@@ -151,6 +151,7 @@ export function ProviderLayout({ children }: { children: React.ReactNode }) {
 // ============ ADMIN LAYOUT ============
 const adminNavItems: NavItem[] = [
   { path: '/', label: 'Dashboard', icon: '📊' },
+  { path: '/categories', label: 'Каталог услуг', icon: '📂' },
   { path: '/users', label: 'Пользователи', icon: '👤' },
   { path: '/providers', label: 'Мастера', icon: '💅' },
   { path: '/customers', label: 'Клиенты', icon: '👥' },

@@ -90,6 +90,37 @@ export interface ServiceCategory {
   businessType: BusinessType;
 }
 
+// ============ HIERARCHICAL CATEGORY TREE ============
+
+export type CategoryStatus = 'ACTIVE' | 'HIDDEN' | 'ARCHIVED';
+
+export interface Category {
+  id: string;
+  parentId: string | null; // null = root category
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  image: string;
+  sortOrder: number;
+  status: CategoryStatus;
+  isVisible: boolean;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Computed fields (not stored in DB)
+  children?: Category[];
+  children_count?: number;
+  services_count?: number;
+  providers_count?: number;
+}
+
+export interface CategoryTreeNode {
+  category: Category;
+  children: CategoryTreeNode[];
+  level: number;
+}
+
 // ============ APPOINTMENT ============
 
 export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';

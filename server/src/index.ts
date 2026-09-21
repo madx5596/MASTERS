@@ -18,6 +18,7 @@ import { promotionsRoutes } from './routes/promotions.js';
 import { notificationsRoutes } from './routes/notifications.js';
 import { adminRoutes } from './routes/admin.js';
 import { auditRoutes } from './routes/audit.js';
+import { categoriesRoutes } from './routes/categories.js';
 
 const app = Fastify({
   logger: {
@@ -84,6 +85,7 @@ await app.register(promotionsRoutes, { prefix: '/api/promotions' });
 await app.register(notificationsRoutes, { prefix: '/api/notifications' });
 await app.register(adminRoutes, { prefix: '/api/admin' });
 await app.register(auditRoutes, { prefix: '/api/audit' });
+await app.register(categoriesRoutes, { prefix: '/api/categories' });
 
 // ============ ERROR HANDLING ============
 app.setErrorHandler((error, request, reply) => {
