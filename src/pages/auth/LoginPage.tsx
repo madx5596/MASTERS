@@ -42,14 +42,22 @@ export function LoginPage() {
       provider: 'anna@beautykrk.ru',
       customer: 'client@mail.ru',
     };
+    setError('');
     setLoading(true);
-    const success = await login(emails[role], 'password123');
-    if (success) {
-      if (role === 'admin') navigate('/admin');
-      else if (role === 'provider') navigate('/provider/today');
-      else navigate('/client');
+    try {
+      const success = await login(emails[role], 'password123');
+      if (success) {
+        if (role === 'admin') navigate('/admin');
+        else if (role === 'provider') navigate('/provider/today');
+        else navigate('/client');
+      } else {
+        setError('Не удалось войти. Попробуйте позже.');
+      }
+    } catch {
+      setError('Ошибка подключения. Попробуйте позже.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

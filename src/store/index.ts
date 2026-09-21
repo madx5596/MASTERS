@@ -86,6 +86,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             updatedAt: new Date().toISOString(),
           };
           set({ currentUser: user, isAuthenticated: true, isLoading: false });
+          // Load data after login in REAL MODE
+          useDataStore.getState().fetchData();
           return true;
         }
         return false;
@@ -100,6 +102,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     const user = mockData.users.find(u => u.email === email);
     if (user) {
       set({ currentUser: user, isAuthenticated: true, isLoading: false });
+      // Load data after login in DEMO MODE
+      useDataStore.getState().fetchData();
       return true;
     }
     return false;
