@@ -38,9 +38,14 @@ export function ProviderDetail() {
               <Badge status={provider.status} />
             </div>
           </div>
-          <Button size="lg" onClick={() => navigate(`/client/booking/${provider.id}`)}>
-            Записаться
-          </Button>
+          <div className="flex gap-2">
+            <Button size="lg" onClick={() => navigate(`/client/booking/${provider.id}`)}>
+              Записаться
+            </Button>
+            <Button size="lg" variant="secondary" onClick={() => navigate(`/client/messages?provider=${provider.id}`)}>
+              💬 Написать
+            </Button>
+          </div>
         </div>
       </Card>
 

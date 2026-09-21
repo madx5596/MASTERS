@@ -44,6 +44,7 @@ interface DataState {
   addAuditLog: (log: AuditLog) => void;
   sendMessage: (conversationId: string, text: string, senderId: string, senderName: string, receiverId: string) => void;
   markMessagesRead: (conversationId: string, userId: string) => void;
+  addConversation: (conversation: Conversation) => void;
   
   // Services CRUD
   addService: (service: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -296,6 +297,10 @@ export const useDataStore = create<DataState>((set) => ({
         ? { ...c, unreadCount: 0 }
         : c
     ),
+  })),
+  
+  addConversation: (conversation) => set(state => ({
+    conversations: [...state.conversations, conversation],
   })),
   
   // Services CRUD

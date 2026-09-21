@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuthStore, useDataStore } from '../../store';
 import { Avatar, Button, EmptyState } from '../../components/ui';
 import { formatTime } from '../../utils/format';
 
 export function ChatPage() {
+  const [searchParams] = useSearchParams();
+  const providerId = searchParams.get('provider');
+  
   const { currentUser } = useAuthStore();
   const { conversations, messages, sendMessage, markMessagesRead } = useDataStore();
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -33,6 +37,39 @@ export function ChatPage() {
       markMessagesRead(selectedConversation, currentUser.id);
     }
   }, [selectedConversation, currentUser?.id]);
+
+  // Auto-select conversation if provider parameter is present
+  useEffect(() => {
+    if (providerId && currentUser && conversations.length > 0) {
+      const providerConv = conversations.find(c => 
+        c.participantIds.includes(currentUser.id) && 
+        c.participantIds.includes(providerId)
+      );
+      if (providerConv) {
+        setSelectedConversation(providerConv.id);
+      } else {
+        // Create new conversation if it doesn't exist
+        const { providers } = useDataStore.getState();
+        const provider = providers.find(p => p.id === providerId);
+        if (provider) {
+          const newConvId = `conv-${Date.now()}`;
+          const newConv = {
+            id: newConvId,
+            participantIds: [currentUser.id, providerId],
+            participantNames: [
+              `${currentUser.firstName} ${currentUser.lastName}`,
+              provider.displayName
+            ],
+            lastMessage: '',
+            lastMessageAt: new Date().toISOString(),
+            unreadCount: 0,
+          };
+          useDataStore.getState().addConversation(newConv);
+          setSelectedConversation(newConvId);
+        }
+      }
+    }
+  }, [providerId, currentUser, conversations]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConv || !currentUser || !selectedConversation) return;

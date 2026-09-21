@@ -184,32 +184,54 @@ export function BookingFlow() {
       {step === 'date' && provider && service && (
         <div>
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setStep('service')} className="text-gray-400 hover:text-gray-600">←</button>
+            <button onClick={() => setStep('service')} className="text-gray-400 hover:text-gray-600 text-xl">←</button>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Выберите дату</h2>
               <p className="text-gray-500">{service.name} · {service.duration} мин</p>
             </div>
           </div>
           <Card className="p-6">
-            <div className="grid grid-cols-7 gap-2">
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Ближайшие 14 дней</h3>
+            </div>
+            <div className="grid grid-cols-7 gap-3">
               {Array.from({ length: 14 }, (_, i) => {
                 const date = new Date();
                 date.setDate(date.getDate() + i);
                 const dateStr = date.toISOString().split('T')[0];
                 const isToday = i === 0;
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                 const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                const monthNames = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
                 
                 return (
                   <button
                     key={dateStr}
                     onClick={() => { setSelectedDate(dateStr); setStep('time'); }}
-                    className={`p-3 rounded-lg text-center transition-colors ${
-                      selectedDate === dateStr ? 'bg-violet-600 text-white' : 'bg-gray-50 hover:bg-gray-100'
+                    className={`relative p-4 rounded-xl text-center transition-all transform hover:scale-105 ${
+                      selectedDate === dateStr 
+                        ? 'bg-violet-600 text-white shadow-lg' 
+                        : isWeekend
+                        ? 'bg-orange-50 hover:bg-orange-100 text-orange-900'
+                        : 'bg-gray-50 hover:bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <div className="text-xs text-gray-500">{dayNames[date.getDay()]}</div>
-                    <div className="text-lg font-bold">{date.getDate()}</div>
-                    {isToday && <div className="text-xs mt-1">Сегодня</div>}
+                    <div className={`text-xs font-medium mb-1 ${
+                      selectedDate === dateStr ? 'text-violet-200' : isWeekend ? 'text-orange-600' : 'text-gray-500'
+                    }`}>
+                      {dayNames[date.getDay()]}
+                    </div>
+                    <div className="text-2xl font-bold mb-1">{date.getDate()}</div>
+                    <div className={`text-xs ${
+                      selectedDate === dateStr ? 'text-violet-200' : 'text-gray-400'
+                    }`}>
+                      {monthNames[date.getMonth()]}
+                    </div>
+                    {isToday && (
+                      <div className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        Сегодня
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -222,7 +244,7 @@ export function BookingFlow() {
       {step === 'time' && provider && service && selectedDate && (
         <div>
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setStep('date')} className="text-gray-400 hover:text-gray-600">←</button>
+            <button onClick={() => setStep('date')} className="text-gray-400 hover:text-gray-600 text-xl">←</button>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Выберите время</h2>
               <p className="text-gray-500">{formatDate(selectedDate)}</p>
@@ -230,26 +252,61 @@ export function BookingFlow() {
           </div>
           <Card className="p-6">
             {loadingSlots ? (
-              <LoadingState />
-            ) : availableSlots.length === 0 ? (
-              <EmptyState icon="📅" title="Нет доступного времени" description="На выбранную дату нет свободных слотов. Попробуйте другую дату." />
-            ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                {availableSlots.map(slot => {
-                  const time = new Date(slot).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                  return (
-                    <button
-                      key={slot}
-                      onClick={() => { setSelectedTime(slot); setStep('confirm'); }}
-                      className={`p-3 rounded-lg text-center font-medium transition-colors ${
-                        selectedTime === slot ? 'bg-violet-600 text-white' : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  );
-                })}
+              <div className="py-12">
+                <LoadingState />
+                <p className="text-center text-gray-500 mt-4">Загружаем доступное время...</p>
               </div>
+            ) : availableSlots.length === 0 ? (
+              <EmptyState 
+                icon="📅" 
+                title="Нет доступного времени" 
+                description="На выбранную дату нет свободных слотов. Попробуйте другую дату."
+                action={
+                  <Button onClick={() => setStep('date')} variant="secondary">
+                    Выбрать другую дату
+                  </Button>
+                }
+              />
+            ) : (
+              <>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600">
+                    Доступно <span className="font-semibold text-violet-600">{availableSlots.length}</span> свободных слотов
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  {availableSlots.map(slot => {
+                    const time = new Date(slot).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                    const hour = new Date(slot).getHours();
+                    const isMorning = hour < 12;
+                    const isAfternoon = hour >= 12 && hour < 18;
+                    const isEvening = hour >= 18;
+                    
+                    return (
+                      <button
+                        key={slot}
+                        onClick={() => { setSelectedTime(slot); setStep('confirm'); }}
+                        className={`relative p-4 rounded-xl text-center font-semibold transition-all transform hover:scale-105 ${
+                          selectedTime === slot 
+                            ? 'bg-violet-600 text-white shadow-lg' 
+                            : isMorning
+                            ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200'
+                            : isAfternoon
+                            ? 'bg-yellow-50 hover:bg-yellow-100 text-yellow-900 border border-yellow-200'
+                            : 'bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200'
+                        }`}
+                      >
+                        <div className="text-xl font-bold">{time}</div>
+                        <div className={`text-xs mt-1 ${
+                          selectedTime === slot ? 'text-violet-200' : 'text-gray-500'
+                        }`}>
+                          {isMorning ? '🌅 Утро' : isAfternoon ? '☀️ День' : '🌆 Вечер'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </Card>
         </div>

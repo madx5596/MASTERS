@@ -260,7 +260,10 @@ export function ClientMasters() {
                   </div>
                 </div>
                 <p className="text-sm text-gray-500 mt-3 line-clamp-2">{provider.description}</p>
-                <Button className="w-full mt-4" size="sm" onClick={(e) => { e.preventDefault(); navigate(`/client/booking/${provider.id}`); }}>Записаться</Button>
+                <div className="flex gap-2 mt-4">
+                  <Button className="flex-1" size="sm" onClick={(e) => { e.preventDefault(); navigate(`/client/booking/${provider.id}`); }}>Записаться</Button>
+                  <Button className="flex-1" size="sm" variant="secondary" onClick={(e) => { e.preventDefault(); navigate(`/client/messages?provider=${provider.id}`); }}>💬</Button>
+                </div>
               </div>
             </Card>
           </Link>
